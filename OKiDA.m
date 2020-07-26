@@ -1,4 +1,4 @@
-close all
+close all % comment out if you do not want OKiDA to close previosuly generated figures from the previous performance of a MATLAB script.
 clear all
 % ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 % -~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~
@@ -27,7 +27,7 @@ clear all
 %           File name: T.i.j Isothermal Section.csv       
 %            ___                                                                           ___
 %           |                                                                                 |
-%           | Temperature (celcius)   Time (minute)   Mass (mg) [or mass density  (mg/cm^2)]  |
+%           | Temperature (celsius)   Time (minute)   Mass (mg) [or mass density  (mg/cm^2)]  |
 %           |                                                                                 |
 %           |      #                       #                         #                        |
 %           |      #                       #                         #                        |
@@ -41,19 +41,41 @@ clear all
 %
 % ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 % 
-% - The stock code is written for the dataset from the (and produced the results for) the following paper on FeCrAl-ODS steam oxidation:
+% - The stock code is written for the example data-set encrypted from the data presented in the following paper on FeCrAl-ODS steam oxidation:
 %
-%   [Lipkina et al. "On the sensitivity of differential scanning measurements of common fluoride salts to experimental conditions", Journal of Nuclear Materials, (in progress, 2020)].
+%   [Lipkina et al. "On the sensitivity of differential scanning measurements of common fluoride salts to experimental conditions", Journal of Nuclear Materials, 2020)].
 %
-% - Code Author: Dan Hallatt, hallattdb@teksavvy.com, 1+ (905) - 376 - 2628
+% - Code Author: Dan Hallatt(*), hallattdb@teksavvy.com, 1+ (905) - 377 - 9430 (CANADA)
 % - Ontario Tech University, Faculty of Energy Systems and Nuclear Science
 % - Markus Piro's Nuclear Fuel and Materials Group, ERC 2096
 % - Oshawa, ON, CANADA
+% - * currently at Université de Lille, UMET-Matériaux Terrestres et
+% Planétaires, Villeneuve d'Ascq, France (daniel.hallatt@univ-lille.fr)
 %
 % ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 % ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+% ----****--------****--------****--------****--------****--------****--------****--------****--------****--------****--------****--------****--------****--------****----
+%   USER-DEFINED INPUTS                              USER-DEFINED INPUTS                               USER-DEFINED INPUTS                               USER-DEFINED INPUTS   
+% ----****--------****--------****--------****--------****--------****--------****--------****--------****--------****--------****--------****--------****--------****----
 % ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+ExpCodes = [1.1,1.2,1.3,2.1,2.2,2.3,3.1,3.2]; % The test's codes are: [i.j] where i designates the temperature and j designates the experiment at that temperature (if j>1 there are repeats at the temperature) 
+SA = [2.594946,2.586856,2.469012,2.586856,2.537856,2.519378,2.68956,2.856472];% Surface area ('SA') of each sample coupon [mm^2]
+SteadyStateStart = [500,700,500]; % Set value of time (UNITS ARE NOT TIME, BUT ACTUALLY EXCEL ROWS) when steady state oxidation begins for each temperature (T.i).
+SteadyStateStartInd = [500,500,500,700,700,700,500,500]; % Set value of time (UNITS ARE NOT TIME, BUT ACTUALLY EXCEL ROWS) when steady state oxidation begins for each experiment (T.i.j.)
+Temperature = [1473.15,1473.15,1473.15,1623.15,1623.15,1623.15,1673.15,1673.15]; % Temperature codes corresponding to the code 'T.i'. Example: T.1 = 1200 C, T.2 = 1350 C, T.3 = 1400 C
+OxygenFrac = [20,20,20,20,20,20,20,20]; % The oxygen fraction (%) in each of the measurement's environments.
+RepeatTestsAtTemp = [3,3,2]; % The number of repeat experiments ran at each temp. (1st column is T.1.# temperature, 2nd column is T.2.# temperature, etc..)
+ExcelDataStart = [34,37,37]; % What row each temperature data should be started from in the .csv file.
+DataPointTypes = ["ob","^r","sg","dm","vk","<c",">y"]; % Defining the heiarchy of preferred data symbols for plotting.
+IsMassDensity = [0,0,0,0,0,0,0,0]; % Data that is manually corrected for Al2O3 (bouyancy) is already input as mass and thus doesn't need division by SA. In this case, enter a value of 1 if it is already in mass-density (MD) form in the .csv data-file (and doesn't need the data in SA).
+DayExpPerformed = ['26-Jan-2019';'27-Jan-2019';'29-Jan-2019';'30-Jan-2019';'30-Jan-2019';'31-Jan-2019';'31-Jan-2019';'01-Feb-2019']; %corresponding to the possible day that each experiment was performed
+TimeofDayExpPerformed = {'00:00';'04:03';'04:32';'16:52';'01:45';'21:49';'05:15';'15:40';'02:45'}; % Corresponding to the time of the day (day vs. night) that each experiment was performed in order T.1.1, T.1.2, T.1.3, T.2.1, etc.. This is to analyze the environmental factors on the meausrements ('is there more error during the day vs. night?')
+
+% ----****--------****--------****--------****--------****--------****--------****--------****--------****--------****--------****--------****--------****--------****----
+% ----****--------****--------****--------****--------****--------****--------****--------****--------****--------****--------****--------****--------****--------****----
 % ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
 
 set(0,'defaulttextinterpreter','latex')
 set(0,'DefaultTextFontname', 'CMU Serif')
@@ -62,30 +84,16 @@ set(0,'DefaultAxesFontName','CMU Serif')
 %set(0,'DefaultFigureVisible','off') %switch figures off. Need to reset MATLAB to turn back on after switching to 'on'
 %----- Experimental Data ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 disp('EXPERIMENTAL PARAMETERS')
-ExpCodes = [1.1,1.2,1.3,2.1,2.2,2.3,3.1,3.2]; % The test's codes are: [i.j] where i designates the temperature and j designates the experiment at that temperature (if j>1 there are repeats at the temperature) 
 Words = ["Test_I.D.:";"Temp. (K)";"Oxygen %";"Steady State Start ";"Surface Area (mm^3):"]; % This sets the row names of a table printed to correlate experimental parameters with each experimental code.
-SA = [2.594946,2.586856,2.469012,2.586856,2.537856,2.519378,2.68956,2.856472];%matrix with sample dimensions; columns (11.1,11.2,..); rows(height,width,length) [mm]
-SteadyStateStart = [500,700,500]; % Set value of time (UNITS ARE NOT TIME, BUT ACTUALLY EXCEL ROWS) when steady state oxidation begins for each temperature (T.i).
-SteadyStateStartInd = [500,500,500,700,700,700,500,500]; % Set value of time (UNITS ARE NOT TIME, BUT ACTUALLY EXCEL ROWS) when steady state oxidation begins for each experiment (T.i.j.)
-Temperature = [1473.15,1473.15,1473.15,1623.15,1623.15,1623.15,1673.15,1673.15]; % Temperature codes corresponding to the code 'T.i'. Example: T.1 = 1200C, T.2 = 1350C, T.3 = 1400C
-OxygenFrac = [20,20,20,20,20,20,20,20]; % What is the oxygen fraction (%) in each of the measurement's environments?
 EXP_PAR = [SteadyStateStartInd;SA];EXP_PAR = [OxygenFrac;EXP_PAR];EXP_PAR = [Temperature;EXP_PAR];EXP_PAR = [ExpCodes;EXP_PAR];EXP_PAR = [Words,EXP_PAR]; % Print the details the experiments
 disp(EXP_PAR)
 
 JustTemps = unique(Temperature);
-RepeatTestsAtTemp = [3,3,2]; % The number of repeat experiments ran at each temp. (1st column is T.1.# temperature, 2nd column is T.2.# temperature, etc..)
-ExcelDataStart = [34,37,37]; % What row each temperature data should be started from in the .csv file.
-DataPointTypes = ["ob","^r","sg","dm","vk","<c",">y"]; % Defining the heiarchy of preferred data symbols for plotting.
-
 N = length(SA); % The number of tests total
 NumberTemperatures = length(unique(Temperature)); % The total number of temperatures tested at.
 
-IsMassDensity = [0,0,0,0,0,0,0,0]; % Data which is manually corrected for Al2O3 (bouyancy) is already input as mass and thus doesn't need division by SA. Put values of 1 if it is already in MD form in the .csv file.
-
 % Making x-axis vectors for 'environmental' variables for regression residual analysis
-DayExpPerformed = ['26-Jan-2019';'27-Jan-2019';'29-Jan-2019';'30-Jan-2019';'30-Jan-2019';'31-Jan-2019';'31-Jan-2019';'01-Feb-2019']; %corresponding to the possible day that each experiment was performed
 DayExpPerformedCode = datenum(DayExpPerformed,'dd-mmm-yyyy');
-TimeofDayExpPerformed = {'00:00';'04:03';'04:32';'16:52';'01:45';'21:49';'05:15';'15:40';'02:45'}; % Corresponding to the time of the day (day vs. night) that each experiment was performed in order T.1.1, T.1.2, T.1.3, T.2.1, etc.. This is to analyze the environmental factors on the meausrements ('is there more error during the day vs. night?')
 for TimeofDayindex = 1:length(TimeofDayExpPerformed)
     TimeofDayExpPerformed{TimeofDayindex} = datenum(TimeofDayExpPerformed(TimeofDayindex), 'HH:MM');
 end
@@ -98,7 +106,7 @@ TestSeq = 0;
 %----- START INDEXING FOR EACH EXPERIMENT FILE -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 %-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 for i = 1:NumberTemperatures
-    clear ExperimentCodeString; % This is to be cleared & redefined for every new temperature. Will be populated as a cell array of the experiment codes for the given (i) tempertaure.
+    clear ExperimentCodeString; % This clears & re-defines the string variable for every new temperature. Will be populated as a cell array of the experiment codes for the given (i) tempertaure.
     R = 0;
     TestSeq = TestSeq + 1;
     
@@ -261,7 +269,7 @@ for i = 1:NumberTemperatures
             % Ask the user HOW they want to calculate the rate law constant (n) for the first temperature. Each additional temperature is
             % assumed to be analyzed via the same method.
             if j == 1 && exist('Z','var') == 0
-                Z = input('Find rate law (n) by either (typing in quotations and pressing enter of the following codes):\n1) regressing each experiment with C.I. only as that of coefficient mean values (enter "Ind"),\n2) regressing each experiment with C.I. found by error propogation (enter "Ind Prop"),\n3) regressing each experiment and using pooled variance to get single variable with C.I. (enter "Ind Pooled"),\n4) regressing an averaged curve for each temperature w/out weighted regression on single mean values (enter "Average"),\n5) regressing an averaged curve for each temperature with weighted regression on single mean values (enter "Weighted Average"),\n6) a hierarchical linear model (enter "HLM"), \nor 7) regressing all data at once (enter "All")');
+                Z = input('Find rate law (n) by either (typing in quotations and pressing enter of the following codes):\n1) regressing each experiment with C.I. only as that of coefficient mean values (enter "Ind"),\n2) regressing each experiment with C.I. found by error propogation (enter "Ind Prop"),\n3) regressing each experiment and using pooled variance to get single variable with C.I. (enter "Ind Pooled"),\n4) regressing an averaged curve for each temperature w/out weighted regression on single mean values (enter "BGAvg"),\n5) regressing an averaged curve for each temperature with weighted regression on single mean values (enter "WtBGAvg"),\n6) a hierarchical linear model (enter "HLM"), \nor 7) regressing all data at once (enter "All")');
             end
             
             FinalFigureName = strcat('Final rate law figure for'," ",TEST_T_num,' at'," ",Temperature_str,' using', " ",Z," ",' treatment of data'); % For future plots
@@ -332,30 +340,30 @@ for i = 1:NumberTemperatures
                 % Calculates the rate law regression coefficients (n = 1/slope) for each experiment individually.
                 %
                 % The average of the fitted coefficients (n) is taken as the final value for each temperature (T.i),
-                % and the error on that value (95% conf. interval) is calculated by propogating the 95% st. dev. error
+                % and the error on that value is calculated by propogating the 95% st. dev. error
                 % from each individually fitted coefficient (n) to the average value using standard error propogation rules.
                 % ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
                 % ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
                     
                 elseif Z == 'Ind Prop'
-                    RateLawRawSlopeData(TestSeq,1) = Slope; RateLawRawSlopeData(TestSeq,2) = SlopeCI(1); RateLawRaeSlopeData(TestSeq,3) = SlopeCI(2);
+                    RateLawRawSlopeData(TestSeq,1) = Slope; RateLawRawSlopeData(TestSeq,2) = SlopeCI(1); RateLawRawSlopeData(TestSeq,3) = SlopeCI(2);
                     RateLaw(TestSeq,1) = 1./Slope; RateLaw(TestSeq,2) = 1./SlopeCI(1); RateLaw(TestSeq,3) = 1./SlopeCI(2);
                     YintData(TestSeq,1) = Yint; YintData(TestSeq,2) = YintCI(1); YintData(TestSeq,3) = YintCI(2);
-                    tValue = tinv(0.975, length(sqrtTime(SteadyStateStart(i):end)) - 1); % Students' t value for 95% confidence.
+                    tValue = tinv(0.975, length(sqrtTime(SteadyStateStart(i):end)) - 1); % Students t value for 95% confidence.
                     if j == 1
-                        NCIwidthVector = 0;
-                        NStDevPropogated = 0;
+                        NStDevVector = 0;
                         YintStDevVector = 0;
+                        NStDevPropogated = 0;
                         YintStDevPropogated = 0;
                     end
                     NStDevVector(j) = (SlopeSE.^2).*sqrt(SampleSize-1); % This is an array (1xSampleSize) storing the 95% St.Dev of the Kp values fitted for each measurement for the specific temperature (re-written for each tempetature). Calculated from the standard error (SE) after converting it to Kp value (Slope^2) and multiplying it by the sqrt(SampleSize-1).
-                    YintStDevVector(j) = (YintSE.^2).*sqrt(SampleSize-1); % This is an array (1xSampleSize) storing the 95% St.Dev of the Kp values fitted for each measurement for the specific temperature (re-written for each tempetature). Calculated from the standard error (SE) after multiplying it by the sqrt(SampleSize-1).
+                    YintStDevVector(j) = (YintSE.^2).*sqrt(SampleSize-1); % This is an array (1xSampleSize) storing the 95% St.Dev of the Yint values fitted for each measurement for the specific temperature (re-written for each tempetature). Calculated from the standard error (SE) after multiplying it by the sqrt(SampleSize-1).
                     
                     if j == SampleSize
                         FinalN(i,1) = mean(RateLaw(TestSeq-SampleSize+1:TestSeq,1)); % This is the mean of the 1/slope values (Kp). THIS IS NOT 1/(mean of the slope)
                         AvgYint(i,1) = mean(YintData(TestSeq-SampleSize+1:TestSeq,1)); % Mean of Mo (y-int)
                         for ErrorPropIndex = 1:SampleSize
-                            NStDevPropogated = (NCIwidthVector(ErrorPropIndex).^2) + NStDevPropogated; % The sum of squares of the 95% St.Dev for each repeat measurement at a tempeerature (all the 'j' at 'i'). AKA the variance of the Gaussian distribution representing the avg. value of the 1./slope = Kp.
+                            NStDevPropogated = (NStDevVector(ErrorPropIndex).^2) + NStDevPropogated; % The sum of squares of the 95% St.Dev for each repeat measurement at a tempeerature (all the 'j' at 'i'). AKA the variance of the Gaussian distribution representing the avg. value of the 1./slope = Kp.
                             YintStDevPropogated = (YintStDevVector(ErrorPropIndex).^2) + YintStDevPropogated; % The sum of squares of the 95% St.Dev. for each repeat measurement at a tempeerature (all the 'j' at 'i'). AKA the variance of the Gaussian distribution representing the avg. value of the 1./slope = Kp.
                             if ErrorPropIndex == SampleSize
                                 NStDevPropogated = sqrt(NStDevPropogated);
@@ -398,7 +406,7 @@ for i = 1:NumberTemperatures
                         legend(RateLawLegendString,'Location','southeast')
                         GroupedRateLawplotName = strcat('Rate law of'," ", TEST_T_num,' at'," ", Temperature_str);
                         title(GroupedRateLawplotName,'FontSize',22);xlabel(FitxAxisLabel,'FontSize',22);ylabel(FityAxisLabel,'FontSize',22);
-                        EquationAnnotation = strcat('ln(m) = ',{' '},num2str(AvgRLSlope(i)),{' '},'ln(t)',{' '},'+',{' '},num2str(FinalYint(i,1)));
+                        EquationAnnotation = strcat('ln(m) = ',{' '},num2str(AvgRLSlope(i)),{' '},'ln(t)',{' '},'+',{' '},num2str(AvgYint(i,1)));
                         text(TempAnnotXRL,TempAnnotYRL,EquationAnnotation,'FontSize',20);
                         ax = gca;ax.FontSize = 20;
                         
@@ -531,16 +539,14 @@ for i = 1:NumberTemperatures
                 % ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
                 % -------- Regressing an average curve for each temperature using OLS  ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
                 % ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-                % Averages the data at each time (into a single curve)
+                % Averages the data at each time beetween--(repeat)groups (into a single curve)
                     
                 % Then calculates the regression coefficient and its respective error based
                 % on ordinary least squares.
-                    
-                % This approach essentially treats each time (averaged 3 data points) as individual experiments.
                 % ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
                 % ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
                     
-                elseif Z == 'Average'
+                elseif Z == 'BGAvg'
                     if j == SampleSize
                         FitfigName = strcat('Average Rate Law at', " ",Temperature_str);
                         FitplotName = strcat('Average Rate Law at'," ", Temperature_str);
@@ -569,12 +575,10 @@ for i = 1:NumberTemperatures
                 % Then calculates the regression coefficient and its respective error based
                 % on weighted least squares (taking into consideration the variance of the individual data points
                 % around the single mean value used at each time).
-                    
-                % This approach essentially treats each time (averaged 3 data points) as individual experiments.
                 % ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
                 % ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
                     
-                elseif Z == 'Weighted Average'
+                elseif Z == 'WtBGAvg'
                     if j == SampleSize
                         FitfigName = strcat('Weighted average rate law at'," ", Temperature_str);
                         FitplotName = strcat('Weighted average rate law at'," ", Temperature_str);
@@ -780,7 +784,7 @@ for i = 1:NumberTemperatures
             % Ask the user HOW they want to calculate the reaction rate (Kp, Mo) for the first temperature. Each additional temperature is
             % assumed to be analyzed via the same method.
             if j == 1 && exist('D','var') == 0
-                D = input('Find reaction rate (Kp and Mo) by either (typing in quotations and pressing enter of the following codes):\n1) regressing each experiment with C.I. only as that of coefficient mean values (enter "Ind"),\n2) regressing each experiment with C.I. from error propogation (enter "Ind Prop"),\n3) regressing each experiment and using pooled variance to get single variable with C.I. (enter "Ind Pooled"),\n4) regressing an averaged curve for each temperature w/out weighted regression on single mean values (enter "Average"),\n5) regressing an averaged curve for each temperature with weighted regression on single mean values (enter "Weighted Average"),\n6) a hierarchical linear model (enter "HLM"), \nor 7) regressing all data at once (enter "All")');
+                D = input('Find reaction rate (Kp and Mo) by either (typing in quotations and pressing enter of the following codes):\n1) regressing each experiment with C.I. only as that of coefficient mean values (enter "Ind"),\n2) regressing each experiment with C.I. from error propogation (enter "Ind Prop"),\n3) regressing each experiment and using pooled variance to get single variable with C.I. (enter "Ind Pooled"),\n4) regressing an averaged curve for each temperature w/out weighted regression on single mean values (enter "BGAvg"),\n5) regressing an averaged curve for each temperature with weighted regression on single mean values (enter "WtWGAv"),\n6) a hierarchical linear model (enter "HLM"), \nor 7) regressing all data at once (enter "All")');
             end            
             FinalFigureName = strcat('Final reaction rate figure for'," ",TEST_T_num," ",'at '," ",Temperature_str," ",'using "',D,'" treatment of data');
             FinalRRResidualsFigureName = strcat('Final reaction rate residuals analysis figure for'," ",TEST_T_num,' at'," ",Temperature_str,' using', " ",D," ",' treatment of data'); % For future plots
@@ -844,7 +848,7 @@ for i = 1:NumberTemperatures
                         RRResQ = input('Would you like to display the residual analysis of the constructed model against all the replicate data at this temperature? ("Y"/"N")');
                         if RRResQ == "Y"
                             RRResidualAnalysis(FinalRRResidualsFigureName,sqrtTime,MassDensity,SteadyStateStart,TestSeq,SampleSize,ReactionAvgSlope,FinalMo,GroupedReactionRateplotName,FitxAxisLabel,FityAxisLabel,DataPointTypes,i) % Function to assess the RR residuals against ALL of the replicate data.    
-                        elseif RRResQ ~= "Y" && RLResQ ~= "N"
+                        elseif RRResQ ~= "Y" && RRResQ ~= "N"
                             fprintf('Incorrect input')
                             break
                         end
@@ -868,9 +872,9 @@ for i = 1:NumberTemperatures
                     MoData(TestSeq,1) = Yint; MoData(TestSeq,2) = YintCI(1); MoData(TestSeq,3) = YintCI(2); % For each temperature this takes the fitted y-int (= reaction rate Mo) data (value, and CI's) for the respective experiment and saves them in this vector. This vector is re-written for each temperature (i).
                     tValue = tinv(0.975, length(sqrtTime(SteadyStateStart(i):end)) - 1); % Students' t value for 95% confidence.
                     if j == 1
-                        KpCIwidthVector = 0;
-                        KpStDevPropogated = 0;
+                        KpStDevVector = 0;
                         MoStDevVector = 0;
+                        KpStDevPropogated = 0;
                         MoStDevPropogated = 0;
                     end
                     KpStDevVector(j) = (SlopeSE.^2).*sqrt(SampleSize-1); % This is an array (1xSampleSize) storing the 95% St.Dev of the Kp values fitted for each measurement for the specific temperature (re-written for each tempetature). Calculated from the standard error (SE) after converting it to Kp value (Slope^2) and multiplying it by the sqrt(SampleSize-1).
@@ -891,7 +895,7 @@ for i = 1:NumberTemperatures
                         FinalKp(i,3) = FinalKp(i,1) - ((tValue.*KpStDevPropogated)./sqrt(SampleSize-1)); % The lower bound of 95% conf. interval: mean + propogated 95% confidence width, where propogated 95% confidence width is found by propogating the error: [Student.t.(95%)] * sqrt(propogated error)/(sample size-1) = [Student.t.(95%)] * sqrt(variance)/(sample size-1) = [Student.t.(95%)] * St.Dev./(sample size-1) = 95% bound.
                         FinalMo(i,2) = FinalMo(i,1) + ((tValue.*MoStDevPropogated)./sqrt(SampleSize-1));
                         FinalMo(i,3) = FinalMo(i,1) - ((tValue.*MoStDevPropogated)./sqrt(SampleSize-1));
-                        
+                    
                         ReactionAvgSlope(i) = mean(ReactionRawSlopeData(TestSeq-SampleSize+1:TestSeq,1)); % Vector which stores the mean of the slope (1/Kp) values for each temperature (i).
                         
                         RRSlopeSE(i) = KpStDevPropogated; % Saving the SE of each temperature's Kp in a vector. NOTE: This is usually saved as the SE of the SLOPE (1/Kp), however this data is used for WLS weights and is thus only relative to itself (where the actual values don't matter, but instead only the relative difference between the values).
@@ -938,7 +942,7 @@ for i = 1:NumberTemperatures
                         RRResQ = input('Would you like to display the residual analysis of the constructed model against all the replicate data at this temperature? ("Y"/"N")');
                         if RRResQ == "Y"
                             RRResidualAnalysis(FinalRRResidualsFigureName,sqrtTime,MassDensity,SteadyStateStart,TestSeq,SampleSize,ReactionAvgSlope,FinalMo,GroupedReactionRateplotName,FitxAxisLabel,FityAxisLabel,DataPointTypes,i) % Function to assess the RR residuals against ALL of the replicate data.    
-                        elseif RRResQ ~= "Y" && RLResQ ~= "N"
+                        elseif RRResQ ~= "Y" && RRResQ ~= "N"
                             fprintf('Incorrect input')
                             break
                         end
@@ -948,7 +952,7 @@ for i = 1:NumberTemperatures
                 % ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
                 % ------- Regressing individual curves & then propogating the st.dev. by pooled variance ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
                 % ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-                % Calculates the rate law regression coefficients (n = 1/slope) for each experiment individually.                    %
+                % Calculates the rate law regression coefficients (n = 1/slope) for each experiment individually.
                 % The average of the fitted coefficients (n) is taken as the final value for each temperature (T.i),
                 % and the error on that value (95% conf. interval) is calculated by POOLING the variance and
                 % propogating it (95% st. dev.) to the average value.
@@ -1065,7 +1069,7 @@ for i = 1:NumberTemperatures
                         RRResQ = input('Would you like to display the residual analysis of the constructed model against all the replicate data at this temperature? ("Y"/"N")');
                         if RRResQ == "Y"
                             RRResidualAnalysis(FinalRRResidualsFigureName,sqrtTime,MassDensity,SteadyStateStart,TestSeq,SampleSize,ReactionAvgSlope,FinalMo,GroupedReactionRateplotName,FitxAxisLabel,FityAxisLabel,DataPointTypes,i) % Function to assess the RR residuals against ALL of the replicate data.    
-                        elseif RRResQ ~= "Y" && RLResQ ~= "N"
+                        elseif RRResQ ~= "Y" && RRResQ ~= "N"
                             fprintf('Incorrect input')
                             break
                         end
@@ -1079,12 +1083,10 @@ for i = 1:NumberTemperatures
               
                % Then calculates the regression coefficient and its respective error based
                % on ordinary least squares.
-                    
-               % This approach essentially treats each time (averaged 3 data points) as individual experiments.
                % ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
                % ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
                     
-                elseif D == 'Average'
+                elseif D == 'BGAvg' % the calculation of the average (mean) itself is between--group (at each time), resulting in a single group to be regressed within--group
                     if j == SampleSize
                         FitfigName = strcat('Average reaction rate at', " ",Temperature_str);
                         FitplotName = strcat('Average reaction rate at', " ",Temperature_str);
@@ -1117,17 +1119,15 @@ for i = 1:NumberTemperatures
                 % Then calculates the regression coefficient and its respective error based
                 % on weighted least squares (taking into consideration the variance of the individual data points
                 % around the single mean value used at each time).
-                    
-                % This approach essentially treats each time (averaged 3 data points) as individual experiments.
                 % ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
                 % ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
                     
-                elseif D == 'Weighted Average'
+                elseif D == 'WtBGAvg'
                     if j == SampleSize
                         FitfigName = strcat('Weighted average reaction rate at'," ", Temperature_str);
                         FitplotName = strcat('Weighted average reaction rate at'," ", Temperature_str);
-                        RRMassDensityGrouped = MassDensity(:,TestSeq-SampleSize+1:TestSeq); %temporary mass matrix for just the current temp. Subset of 'MassDensity' matrix.
-                        RRMassDensityAvg(:,i) = mean(RRMassDensityGrouped,2); %averaging mass at each time (across rows). Ensure that each repeated temperature is cut off at the same point.
+                        RRMassDensityGrouped = MassDensity(:,TestSeq-SampleSize+1:TestSeq); % temporary mass matrix for just the current temp. Subset of 'MassDensity' matrix.
+                        RRMassDensityAvg(:,i) = mean(RRMassDensityGrouped,2); % averaging mass at each time (across rows). Ensure that each repeated temperature is cut off at the same point.
                         MDStDev = std(RRMassDensityGrouped,[],2);
                         domain = sqrtTime(SteadyStateStart(i):end);range = RRMassDensityAvg(SteadyStateStart(i):end,i);Weights = 1./MDStDev(SteadyStateStart(i):end);
                         UseParameter = 0;
@@ -1262,7 +1262,7 @@ for i = 1:NumberTemperatures
         % ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
         % ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
         
-        if  i == NumberTemperatures && j == SampleSize
+        if  i == NumberTemperatures && j == SampleSize && NumberTemperatures>1
             Arrhenious = input('Do you want to calculate the arrhenius relationship (Ea and A)? ("Y"/"N")');
             if Arrhenious == 'Y'
                 FitxAxisLabel = '1/Temperature (K^-1)';FityAxisLabel = 'ln[Kp] (g^2 / (cm^4*sec^1))'; % reaction rate constant (I think it's the coefficient, not Mo...)
@@ -1273,8 +1273,7 @@ for i = 1:NumberTemperatures
                 
                 lnKp = log(FinalKp(:,1));
                 range = flip(lnKp);
-                
-                                               
+                                                            
                 % The following sets the weights for WLS regression of the Arrhenious relationship. 
                 % The weights are defined for each temperature by the inverse of the standard error (SE)
                 % of the regressed slope (or the inverse of it, 1./slope = Kp, since weights are just relative 
@@ -1282,13 +1281,13 @@ for i = 1:NumberTemperatures
                 % reaction rate ('Kp') regression above.
                 
                 for WeightIndex = 1:NumberTemperatures
-                    Weights(WeightIndex) = 1./(RRSlopeSE(WeightIndex).*(length(MassDensity(SteadyStateStart(i):end,WeightIndex))-1));
+                    Weights(WeightIndex) = 1./(RRSlopeSE(WeightIndex).*(length(MassDensity(SteadyStateStart(i):end,WeightIndex))-1)); % weights for each Kp fitted are defined as the inverse of the SE of each (at each T)
                 end
                 
                 UseParameter = 4;
                 [weightedfitresult,WeightedSlope,WeightedYint,WeightedSlopeSE,WeightedSlopeCI,WeightedYintSE,WeightedYintCI] = createWeightedFit(domain, range, Weights, FitfigName, FitplotName, FitxAxisLabel, FityAxisLabel, TempAnnotXRL, TempAnnotYRL, TempAnnotXRR, TempAnnotYRR, AnnotX, AnnotY, UseParameter);
                 
-                Ea(1) = WeightedSlope.*(-8.314); Ea(2) = WeightedSlopeCI(1).*(-8.314); Ea(3) = WeightedSlopeCI(2).*(-8.314);
+                Ea(1) = WeightedSlope.*(-8.314); Ea(2) = WeightedSlopeCI(2).*(-8.314); Ea(3) = WeightedSlopeCI(1).*(-8.314);
                 AMatrix(1) = exp(WeightedYint); AMatrix(2) = exp(WeightedYint + WeightedYintCI(2)); AMatrix(3) = exp(WeightedYint - WeightedYintCI(2));
                 
                 F = input('Do you want to display Arrhenious (Ea & A) data? ("Y"/"N")');
@@ -1310,6 +1309,7 @@ for i = 1:NumberTemperatures
             while u<=SampleSize
                 TestCode = strcat('Calculated steady- and transient-state breakdown of'," ",'T.',num2str(i),'.',num2str(u));
                 TransMass(:,u) = MassDensity(:,TestSeq - SampleSize + u) - KpSlopeData(TestSeq - SampleSize + u,1).*sqrtTime; % Assume steady-state y-int (t_p) is 0, and subtract this behaviour off of measured mass.
+                TransMassNEWOther(:,u) = MassDensity(:,TestSeq - SampleSize + u) - (KpSlopeData(TestSeq - SampleSize + u,1).*sqrtTime + KpYintData(TestSeq - SampleSize + u,1)); % Assume steady-state y-int (t_p) is 0, and subtract this behaviour off of measured mass.
                 SteadyMassTangent(:,u) = KpSlopeData(TestSeq - SampleSize + u,1).*sqrtTime + KpYintData(TestSeq - SampleSize + u,1); % Tangent to SS section of real m curve. Y-int called m_o(primed). This is based on Kp average value.
                 SteadyMass(:,u) = KpSlopeData(TestSeq - SampleSize + u,1).*sqrtTime; % The steady-state m_p curve, originating from 0 by assumption
                 
@@ -1317,7 +1317,8 @@ for i = 1:NumberTemperatures
                 box on
                 SSPlot(1) = scatter(sqrtTime,MassDensity(:,TestSeq - SampleSize + u),sz,'o','black','filled');
                 hold on
-                SSPlot(2) = scatter(sqrtTime,TransMass(:,u),sz,'filled','Marker','d','MarkerFaceColor','#D95319','MarkerEdgeColor','#D95319'); % Plotting the calculated transient mass
+                SSPlot(2) = scatter(sqrtTime,TransMassNEWOther(:,u),sz,'filled','Marker','d','MarkerFaceColor','#D95319','MarkerEdgeColor','#D95319'); % Plotting the calculated transient mass
+                %SSPlot(2) = scatter(sqrtTime,TransMass(:,u),sz,'filled','Marker','d','MarkerFaceColor','#D95319','MarkerEdgeColor','#D95319'); % Plotting the calculated transient mass
                 SSPlot(3) = line([sqrtTime(1),sqrtTime(end)], [SteadyMassTangent(1,u),SteadyMassTangent(end,u)],'Color','#0072BD','LineStyle','--','LineWidth',2); % Plotting the calculated steady-state mass and extrapolating the start mass to non-zero y-intercept.
                 SSPlot(4) = vline(sqrtTime(SteadyStateStartInd(TestSeq - SampleSize + u)),'black:'); % Showing where the steady-state cutoff has been defined with a vertical, black, dotted line.
                 SSPlot(5) = line([sqrtTime(1),sqrtTime(end)], [SteadyMass(1,u),SteadyMass(end,u)],'Color','#0072BD','LineStyle','--','LineWidth',2); % Plotting the calculated steady-state mass normalized for 0 start mass
@@ -1404,13 +1405,13 @@ end
 function [AnnotX,AnnotY] = KpRegressionAnnotationPosition(TESTnum_verstr)
 if strcmp(TESTnum_verstr,'1.1')
     AnnotX = 90;
-    AnnotY = 2.4.*10.^(-4);
+    AnnotY = 2.8.*10.^(-4);
 elseif strcmp(TESTnum_verstr,'1.2')
     AnnotX = 90;
-    AnnotY = 4.1.*10.^(-4);
+    AnnotY = 3.8.*10.^(-4);
 elseif strcmp(TESTnum_verstr,'1.3')
-    AnnotX = 93;
-    AnnotY = 3.4.*10.^(-4);
+    AnnotX = 90;
+    AnnotY = 3.6.*10.^(-4);
 elseif strcmp(TESTnum_verstr,'2.1')
     AnnotX = 104;
     AnnotY = 7.0.*10.^(-4);
@@ -1435,7 +1436,7 @@ end
 function [TempAnnotXRR,TempAnnotYRR] = KpRegressionAnnotationPositionPerTemp(TEST_T_num)
 if strcmp(TEST_T_num,'T.1')
     TempAnnotXRR = 92;
-    TempAnnotYRR = 3.4.*10.^(-4);
+    TempAnnotYRR = 4.0.*10.^(-4);
 elseif strcmp(TEST_T_num,'T.2')
     TempAnnotXRR = 106;
     TempAnnotYRR = 5.75.*10.^(-4);
@@ -2034,7 +2035,7 @@ for h = 1:SampleSize
     scatter(sqrtTime(SteadyStateStart(i):end),RRresiduals(:,h),'filled',DataPointTypes(h)) % Plotting the residuals (data - model) for the final 'reduced' model from 'Ind' at temperature i against all of the raw, replicate, data.
 end
 hold off
-title(GroupedRateLawplotName,'FontSize',22);xlabel(FitxAxisLabel,'FontSize',22);ylabel('Residuals','FontSize',22);
+title(GroupedReactionRateplotName,'FontSize',22);xlabel(FitxAxisLabel,'FontSize',22);ylabel('Residuals','FontSize',22);
 ax = gca;ax.FontSize = 20;
 
 subplot(2,1,2); %  Residuals (g) vs lagged residuals (g-1) plot. Each replicate data-set is overlaid with a new data-point type/colour.
