@@ -160,8 +160,7 @@ for i = 1:NumberTemperatures
         MassDensitySquaredMatrix(:,TestSeq) = MD.^2;
         lnMD(:,TestSeq) = log(MD); % ln(mass) in grams
         lnTime = log(Time); % ln(time) in seconds
-        sqrtTime = sqrt(Time); % square root of time (sec)
-        
+
         % ------- Plotting all of the data together, illustrating the position (vertical line) where the start of steady-state behaviour was defined  -----------------------------------------------------------------------------------------------------
         % ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
         
@@ -349,34 +348,48 @@ for i = 1:NumberTemperatures
                     RateLawRawSlopeData(TestSeq,1) = Slope; RateLawRawSlopeData(TestSeq,2) = SlopeCI(1); RateLawRawSlopeData(TestSeq,3) = SlopeCI(2);
                     RateLaw(TestSeq,1) = 1./Slope; RateLaw(TestSeq,2) = 1./SlopeCI(1); RateLaw(TestSeq,3) = 1./SlopeCI(2);
                     YintData(TestSeq,1) = Yint; YintData(TestSeq,2) = YintCI(1); YintData(TestSeq,3) = YintCI(2);
-                    tValue = tinv(0.975, length(sqrtTime(SteadyStateStart(i):end)) - 1); % Students t value for 95% confidence.
+                    tValue = tinv(0.975, length(Time(SteadyStateStart(i):end)) - 1); % Students t value for 95% confidence.
                     if j == 1
                         NStDevVector = 0;
                         YintStDevVector = 0;
                         NStDevPropogated = 0;
                         YintStDevPropogated = 0;
-                    end
-                    NStDevVector(j) = (SlopeSE.^2).*sqrt(SampleSize-1); % This is an array (1xSampleSize) storing the 95% St.Dev of the Kp values fitted for each measurement for the specific temperature (re-written for each tempetature). Calculated from the standard error (SE) after converting it to Kp value (Slope^2) and multiplying it by the sqrt(SampleSize-1).
-                    YintStDevVector(j) = (YintSE.^2).*sqrt(SampleSize-1); % This is an array (1xSampleSize) storing the 95% St.Dev of the Yint values fitted for each measurement for the specific temperature (re-written for each tempetature). Calculated from the standard error (SE) after multiplying it by the sqrt(SampleSize-1).
+                    end 
                     
+                    % note: for the propogating error, keep the St.Dev. in the units of the slope (not n = 1/slope), b/c that
+                    % transformation causes the variance to be much too large (after 1./St.Dev.(of slope)) as it is
+                    % fractional (you would need to find the % error, not the absolute. Instead, transform the error (St.Dev.
+                    % right at the end, after combining with the mean 1./slope (=n)).
+                    
+                    % Use this if the CI if the conversion from 1/slope = n is done after calculating CI:
+                    % NStDevVector(j) = (SlopeSE).*sqrt(length(Time(SteadyStateStart(i):end))); % This is an array (1xSampleSize) storing the 95% St.Dev of the 1/n values fitted for each measurement for the specific temperature (re-written for each tempetature). Calculated from the standard error (SE) after converting it to n value (1/slope) and multiplying it by the sqrt(SampleSize).
+                    % Use this if the CI if the conversion from 1/slope = n is done before calculating CI:
+                    NStDevVector(j) = (((RateLaw(TestSeq,3) - RateLaw(TestSeq,1))*sqrt(length(Time(SteadyStateStart(i):end))))/tValue);
+                    
+                    YintStDevVector(j) = (YintSE).*sqrt(length(Time(SteadyStateStart(i):end))); % This is an array (1xSampleSize) storing the 95% St.Dev of the Yint values fitted for each measurement for the specific temperature (re-written for each tempetature). Calculated from the standard error (SE) after multiplying it by the sqrt(SampleSize).
+                    
+                    %NStDevMatrix(j) = (((RateLawRawSlopeData(TestSeq,3) - RateLawRawSlopeData(TestSeq,1))*sqrt(length(Time(SteadyStateStart(i):end))))/tValue); % alternate way to calculate the SD of the each data-set's fitted n value. Should be equal to NStDevVector!?
+               
                     if j == SampleSize
-                        FinalN(i,1) = mean(RateLaw(TestSeq-SampleSize+1:TestSeq,1)); % This is the mean of the 1/slope values (Kp). THIS IS NOT 1/(mean of the slope)
-                        AvgYint(i,1) = mean(YintData(TestSeq-SampleSize+1:TestSeq,1)); % Mean of Mo (y-int)
-                        for ErrorPropIndex = 1:SampleSize
-                            NStDevPropogated = (NStDevVector(ErrorPropIndex).^2) + NStDevPropogated; % The sum of squares of the 95% St.Dev for each repeat measurement at a tempeerature (all the 'j' at 'i'). AKA the variance of the Gaussian distribution representing the avg. value of the 1./slope = Kp.
-                            YintStDevPropogated = (YintStDevVector(ErrorPropIndex).^2) + YintStDevPropogated; % The sum of squares of the 95% St.Dev. for each repeat measurement at a tempeerature (all the 'j' at 'i'). AKA the variance of the Gaussian distribution representing the avg. value of the 1./slope = Kp.
-                            if ErrorPropIndex == SampleSize
-                                NStDevPropogated = sqrt(NStDevPropogated);
-                                YintStDevPropogated = sqrt(YintStDevPropogated);
-                            end
-                        end
-                        FinalN(i,2) = FinalN(i,1) + ((tValue.*NStDevPropogated)./sqrt(SampleSize-1)); % The upper bound of 95% conf. interval: mean + propogated 95% confidence width, where propogated 95% confidence width is found by propogating the error: [Student.t.(95%)] * sqrt(propogated error)/(sample size-1) = [Student.t.(95%)] * sqrt(variance)/(sample size-1) = [Student.t.(95%)] * St.Dev./(sample size-1) = 95% bound.
-                        FinalN(i,3) = FinalN(i,1) - ((tValue.*NStDevPropogated)./sqrt(SampleSize-1)); % The lower bound of 95% conf. interval: mean + propogated 95% confidence width, where propogated 95% confidence width is found by propogating the error: [Student.t.(95%)] * sqrt(propogated error)/(sample size-1) = [Student.t.(95%)] * sqrt(variance)/(sample size-1) = [Student.t.(95%)] * St.Dev./(sample size-1) = 95% bound.
-                        AvgYint(i,2) = AvgYint(i,1) + ((tValue.*YintStDevPropogated)./sqrt(SampleSize-1));
-                        AvgYint(i,3) = AvgYint(i,1) - ((tValue.*YintStDevPropogated)./sqrt(SampleSize-1));
-                        
-                        AvgRLSlope(i) = mean(RateLawRawSlopeData(TestSeq-SampleSize+1:TestSeq,1)); % Vector which stores the mean of the slope (1/Kp) values for each temperature (i). 
-                        
+                        NStDevPropogated(i) = sum(NStDevVector.^2); % The sum of squares of the 95% St.Dev for each repeat measurement at a temperature (all the 'j' at 'i'). AKA the variance of the Gaussian distribution representing the avg. value of the slope = 1/n.
+                        YintStDevPropogated(i) = sum(YintStDevVector.^2);
+                        % Use these next two if the CI if the conversion from 1/slope = n is done after calculating CI:
+                        AvgRLSlope(i) = mean(RateLawRawSlopeData(TestSeq-SampleSize+1:TestSeq,1)); % Vector which stores the mean of the slope (1/n) values for each temperature (i). 
+                        %FinalN(i,1) = 1./(AvgRLSlope(i));
+                        % Use this if the CI if the conversion from 1/slope = n is before after calculating CI:
+                        FinalN(i,1) = mean(RateLaw(TestSeq-SampleSize+1:TestSeq,1)); % This is the mean of the 1/slope values (n). THIS IS NOT 1/(mean of the slope)
+                        AvgYint(i,1) = mean(YintData(TestSeq-SampleSize+1:TestSeq,1)); % Mean of y-int
+                        NStDevPropogated = (sqrt(NStDevPropogated(i))).*(1/SampleSize); % Error propogation for the mean of n is the square root of the sum of squares of each data-set's St.Dev. (at Temperature 'i') dividided by the number of samples used to find the average.
+                        YintStDevPropogated = (sqrt(YintStDevPropogated(i))).*(1/SampleSize);
+                        % Use these if the CI if the conversion from 1/slope = n is done after calculating CI:
+                        %FinalN(i,2) = 1./(AvgRLSlope(i) + ((tValue.*NStDevPropogated(i))./sqrt(length(Time(SteadyStateStart(i):end))))); % The upper bound of 95% conf. interval: mean + propogated 95% confidence width, where propogated 95% confidence width is found by t(95%) * St.Dev./sqrt(SampleSize) = t(95%) * SE
+                        %FinalN(i,3) = 1./(AvgRLSlope(i) - ((tValue.*NStDevPropogated(i))./sqrt(length(Time(SteadyStateStart(i):end))))); % The lower bound of 95% conf. interval: mean - propogated 95% confidence width
+                        % Use these if the CI if the conversion from 1/slope = n is before after calculating CI:
+                        FinalN(i,2) = (FinalN(i,1) + ((tValue.*NStDevPropogated(i))./sqrt(length(Time(SteadyStateStart(i):end))))); % The upper bound of 95% conf. interval: mean + propogated 95% confidence width, where propogated 95% confidence width is found by t(95%) * St.Dev./sqrt(SampleSize) = t(95%) * SE
+                        FinalN(i,3) = (FinalN(i,1) - ((tValue.*NStDevPropogated(i))./sqrt(length(Time(SteadyStateStart(i):end))))); % The lower bound of 95% conf. interval: mean - propogated 95% confidence width
+                        AvgYint(i,2) = AvgYint(i,1) + ((tValue.*YintStDevPropogated(i))./sqrt(length(Time(SteadyStateStart(i):end))));
+                        AvgYint(i,3) = AvgYint(i,1) - ((tValue.*YintStDevPropogated(i))./sqrt(length(Time(SteadyStateStart(i):end))));
+                                                
                         RateLawDisplayQuestion = strcat('Do you want to display rate law (n) data at'," ",Temperature_str,' (',TEST_T_num,')? ("Y"/"N")');
                         F = input(RateLawDisplayQuestion);
                         if F == "Y"
@@ -433,10 +446,10 @@ for i = 1:NumberTemperatures
                     
                 elseif Z == 'Ind Pooled'
                     tValue = tinv(0.975, length(lnTime(SteadyStateStart(i):end)) - 1); % Student's t value for 95% confidence.
-                    RateLawSlopeData(TestSeq,1) = Slope; RateLawSlopeData(TestSeq,2) = SlopeCI(2) - Slope; RateLawSlopeData(TestSeq,3) = SlopeSE.*tValue; RateLawSlopeData(TestSeq,4) = SlopeSE.*sqrt(length(lnTime(SteadyStateStart(i):end))-1); % Column 1 is coefficient value (the slope (1/Kp)), Column 2 is one way of calculating the 1/2width of +/- value of 95% confidence interval (+/- this amount) of the slope (1/Kp), Column 3 is another way of calculating the 1/2width of +/- value of 95% confidence interval (mean +/- this amount) of the slope (1/Kp), Column 4 is the St.Dev. of the slope (1/Kp).
+                    RateLawSlopeData(TestSeq,1) = Slope; RateLawSlopeData(TestSeq,2) = SlopeCI(2) - Slope; RateLawSlopeData(TestSeq,3) = SlopeSE.*tValue; RateLawSlopeData(TestSeq,4) = SlopeSE.*sqrt(length(lnTime(SteadyStateStart(i):end))); % Column 1 is coefficient value (the slope (1/Kp)), Column 2 is one way of calculating the 1/2width of +/- value of 95% confidence interval (+/- this amount) of the slope (1/Kp), Column 3 is another way of calculating the 1/2width of +/- value of 95% confidence interval (mean +/- this amount) of the slope (1/Kp), Column 4 is the St.Dev. of the slope (1/Kp).
                     RawRateLaw(TestSeq,1) = 1./Slope; RawRateLaw(TestSeq,2) = 1./SlopeCI(1); RawRateLaw(TestSeq,3) = 1./SlopeCI(2); % Array of n and n +/- 95% CI.
 
-                    YintData(TestSeq,1) = Yint; YintData(TestSeq,2) = YintCI(2) - Yint; YintData(TestSeq,3) = YintSE.*tValue; YintData(TestSeq,4) = YintSE.*sqrt(length(lnTime(SteadyStateStart(i):end))-1); %Column 1 is coefficient value, Column 2 is the +/- value of 95% confidence interval, Column 3 is the +/- value of 95% confidence interval calculated a different way, Column 4 is St.Dev. of coefficient.
+                    YintData(TestSeq,1) = Yint; YintData(TestSeq,2) = YintCI(2) - Yint; YintData(TestSeq,3) = YintSE.*tValue; YintData(TestSeq,4) = YintSE.*sqrt(length(lnTime(SteadyStateStart(i):end))); %Column 1 is coefficient value, Column 2 is the +/- value of 95% confidence interval, Column 3 is the +/- value of 95% confidence interval calculated a different way, Column 4 is St.Dev. of coefficient.
                     
                     if j == SampleSize %AvgRateLaw is matrix with column1=mean n value, column2=pooled standard deviation, and column3=mean of standard deviation values.
                         RateLawMeanSlopeData(i,1) = (mean(RateLawSlopeData(TestSeq-SampleSize+1:TestSeq,1))); % Mean of the individual measurements of the rate law slope (1./n) at temperature i.
@@ -447,8 +460,8 @@ for i = 1:NumberTemperatures
                         MeanYInt(i,2) = (mean(YintData(TestSeq-SampleSize+1:TestSeq,1)) + (tValue.*(std(YintData(TestSeq-SampleSize+1:TestSeq,1))./sqrt(SampleSize))));
                         MeanYInt(i,3) = (mean(YintData(TestSeq-SampleSize+1:TestSeq,1)) - (tValue.*(std(YintData(TestSeq-SampleSize+1:TestSeq,1))./sqrt(SampleSize))));
                         
-                        AvgRateLaw(i) = mean(RawRateLaw(TestSeq-SampleSize+1:TestSeq,1)); %average of 1./slope. This is not 1./(avg. of slope)
-                        AvgRLSlope(i) = RateLawMeanSlopeData(i,1)
+                        AvgRateLaw(i) = mean(RawRateLaw(TestSeq-SampleSize+1:TestSeq,1)); % Average of 1./slope. This is not 1./(avg. of slope)
+                        AvgRLSlope(i) = RateLawMeanSlopeData(i,1);
                         
                         PooledRateLawSlopeVarNumerator = zeros(NumberTemperatures);
                         PooledRateLawSlopeVarDenominator = zeros(NumberTemperatures);
@@ -472,12 +485,12 @@ for i = 1:NumberTemperatures
                             end
                         end
                         
-                        RateLawSlopePooledCI(i) = tValue.*(PooledRateLawSlopeStDev(i)./sqrt(length(lnTime(SteadyStateStart(i):end)) - 1)); % The +/- width of the 95% confidence interval for the reaction rate slope at temperature i. SHOULD BE SIMILIAR TO RATELAWFinalSlopeData(i,2) RIGHT?!?!
-                        FinalRateLaw(i,1) = 1./RateLawMeanSlopeData(i,1); FinalRateLaw(i,2) = AvgRateLaw + 1./(RateLawSlopePooledCI(i)); FinalRateLaw(i,3) = AvgRateLaw - 1./(RateLawSlopePooledCI(i));
+                        RateLawSlopePooledCI(i) = tValue.*(PooledRateLawSlopeStDev(i)./sqrt(length(lnTime(SteadyStateStart(i):end)))); % The +/- width of the 95% confidence interval for the reaction rate slope at temperature i. SHOULD BE SIMILIAR TO RATELAWFinalSlopeData(i,2) RIGHT?!?!
+                        FinalRateLaw(i,1) = 1./RateLawMeanSlopeData(i,1); FinalRateLaw(i,2) = 1./(RateLawMeanSlopeData(i,1) + (RateLawSlopePooledCI(i))); FinalRateLaw(i,3) = 1./(RateLawMeanSlopeData(i,1) - 1./(RateLawSlopePooledCI(i)));
                         %FinalRateLaw(i,1) = AvgRateLaw(i); FinalKp(i,2) = AvgRateLaw(i) + RateLawSlopePooledCI(i).^2; FinalKp(i,3) = AvgRateLaw(i) - RateLawSlopePooledCI(i).^2; 
                         
-                        YIntPooledCI(i) = tValue.*(PooledYIntStDev(i)./sqrt(length(lnTime(SteadyStateStart(i):end)) - 1)); % The +/- width of the 95% confidence interval for the reaction rate slope at temperature i.
-                        AvgYint(i,1) =  MeanYint(i,1); AvgYint(i,2) = MeanYint(i,1) + YIntPooledCI(i); AvgYint(i,3) = MeanYInt(i,1) - YIntPooledCI(i); % Manually calculated C.I. (95%) for the y-int. (Mo) by POOLING the VARIANCE.
+                        YIntPooledCI(i) = tValue.*(PooledYIntStDev(i)./sqrt(length(lnTime(SteadyStateStart(i):end)))); % The +/- width of the 95% confidence interval for the reaction rate slope at temperature i.
+                        AvgYint(i,1) =  MeanYInt(i,1); AvgYint(i,2) = MeanYInt(i,1) + YIntPooledCI(i); AvgYint(i,3) = MeanYInt(i,1) - YIntPooledCI(i); % Manually calculated C.I. (95%) for the y-int. (Mo) by POOLING the VARIANCE.
                         
                         if TestSeq == TestSeq(end) % Only ask this once each of the temperatures have been analyzed.
                             E = input('** FOR DEVELOPERS ** Would you like to display code quality assurance checks? ("Y"/"N")');
@@ -486,7 +499,7 @@ for i = 1:NumberTemperatures
                                 tableNames = {'Slope','MATLAB [(Upper Limit C.I.) - Mean]','MATLAB [Mean * Student.t]'};
                                 table(RateLawSlopeData(:,1),RateLawSlopeData(:,2),RateLawSlopeData(:,3),'VariableNames',tableNames)
                                 
-                                display('The following is a comparison of MATLABs slope (1/Kp) calculated confidence interval values to those manually calculated for each measurement')
+                                display('The following is a comparison of MATLABs slope (1/n) calculated confidence interval values to those manually calculated for each measurement')
                                 tableNames = {'MeanSlope','MeanSlopeC.I.width','PooledSlopeC.I.width','MeanSlopeSt.Dev.','PooledSlopeSt.Dev.','Mean of Kp','Kp of Mean Slope'};
                                 table(RateLawMeanSlopeData(i,1),RateLawMeanSlopeData(i,2),RateLawSlopePooledCI(i),RateLawMeanSlopeData(i,3),PooledRateLawSlopeStDev(i),AvgRateLaw(i),FinalRateLaw(i,1),'VariableNames',tableNames)
                             end
@@ -505,7 +518,7 @@ for i = 1:NumberTemperatures
                         end
                         
                         figure('Name',FinalFigureName,'Color','white');
-                        line([lnTime(SteadyStateStart(i)),lnTime(end)], [RateLawMeanSlopeData(i,1).*lnTime(SteadyStateStart(i)) + AvgYint(i,1),AvgRateLawMeanSlopeDataSlope(i,1).*lnTime(end) + AvgYint(i,1)],'Color','blue','LineStyle','--'); %plotting the steady-state mass
+                        line([lnTime(SteadyStateStart(i)),lnTime(end)], [RateLawMeanSlopeData(i,1).*lnTime(SteadyStateStart(i)) + AvgYint(i,1),RateLawMeanSlopeData(i,1).*lnTime(end) + AvgYint(i,1)],'Color','blue','LineStyle','--'); % plotting the steady-state mass
                         
                         hold on
                         box on
@@ -715,32 +728,44 @@ for i = 1:NumberTemperatures
         if j == 1
             W = input(ReactionRateQuestion);
         end
-
+        
         if W == 'Y'
-            SampleSizeMatrix(TestSeq) = length(sqrtTime(SteadyStateStart(i):end)); % Vector of length of data for each temperature
-
+            if j == 1
+                SpecificRateLawQuestion = strcat('Using what value of the rate law coefficient? (n = 1, 2, etc.)');
+                RateLawCoeffSpec = input(SpecificRateLawQuestion); 
+            end
+            RRTime = nthroot(Time,RateLawCoeffSpec); % if n = 1 this is the same as Time vector, if n = 2 this applies a sqrt to each of the Time vector's entries
+            SampleSizeMatrix(TestSeq) = length(RRTime(SteadyStateStart(i):end)); % Vector of length of data for each temperature
+            
             % ------- Plotting Details -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
             % ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
             
             FitfigName = strcat('Reaction Rate of'," ", TEST_T_num_verstr,' at '," ", Temperature_str);
             FitplotName = strcat('Reaction Rate of'," ", TEST_T_num_verstr,' at '," ", Temperature_str);
-            FitxAxisLabel = 'Square Root Time (seconds^[1/2])';FityAxisLabel = 'Mass (g/cm^2)';
+            
+            if RateLawCoeffSpec == 1
+                FitxAxisLabel = 'Time (seconds^[1/2])';FityAxisLabel = 'Mass (g/cm^2)';
+            elseif RateLawCoeffSpec == 2
+                FitxAxisLabel = 'Square Root Time (seconds^[1/2])';FityAxisLabel = 'Mass (g/cm^2)';
+            end
+                
             [AnnotX,AnnotY] = KpRegressionAnnotationPosition(TESTnum_verstr); % Defining the position of the fitted equation annotation on each figure.
            
             % ------- No matter what data treatment chosen, always plot individual fits for analysis ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
             % ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-            
-            domain = sqrtTime(SteadyStateStart(i):end);range = MassDensity(SteadyStateStart(i):end,TestSeq);
+           
             UseParameter = 2; % Identify the use of the 'createFit' function (the following line) for the Reaction Rate fitting of each experiment.
+            domain = RRTime(SteadyStateStart(i):end);range = MassDensity(SteadyStateStart(i):end,TestSeq);
+            
             [fitresult,Slope,Yint,SlopeSE,SlopeCI,YintSE,YintCI] = createFit(domain, range, FitfigName, FitplotName, FitxAxisLabel, FityAxisLabel, TempAnnotXRL, TempAnnotYRL, TempAnnotXRR, TempAnnotYRR, AnnotX, AnnotY, UseParameter);
             ReactionRateResidualsMatrix{TestSeq} = fitresult.Residuals.Raw;
             KpSlopeData(TestSeq,1) = Slope; KpSlopeData(TestSeq,2) = SlopeCI(2); KpSlopeData(TestSeq,3) = SlopeCI(1); KpSlopeData(TestSeq,4) = SlopeSE; % Saving fitted data to matrix to calculate the transiet behaviour
             KpYintData(TestSeq,1) = Yint; KpYintData(TestSeq,2) = YintCI(2); KpYintData(TestSeq,3) = YintCI(1); KpYintDatas(TestSeq,4) = YintSE;
             
             if SampleSize == 1; % if there is no replicate data for the temperature (i) then this is the final regression/rate law for that temperature (don't need the data treatments below).
-                FinalKp(i,1) = Slope.^2;
-                FinalKp(i,2) = SlopeCI(1).^2;
-                FinalKp(i,3) = SlopeCI(2).^2;
+                FinalKp(i,1) = Slope.^RateLawCoeffSpec;
+                FinalKp(i,2) = SlopeCI(1).^RateLawCoeffSpec;
+                FinalKp(i,3) = SlopeCI(2).^RateLawCoeffSpec;
                 
                 FinalMo(i,1) = Yint;
                 FinalMo(i,2) = YintCI(1);
@@ -793,7 +818,7 @@ for i = 1:NumberTemperatures
                 if D == 'Ind'
                     ReactionRawSlopeData(TestSeq,1) = Slope; ReactionRawSlopeData(TestSeq,2) = SlopeCI(1); ReactionRawSlopeData(TestSeq,3) = SlopeCI(2);
                     ReactionSlopeSE(TestSeq,1) = SlopeSE;
-                    Kp(TestSeq,1) = Slope.^2; Kp(TestSeq,2) = SlopeCI(1).^2; Kp(TestSeq,3) = SlopeCI(2).^2;
+                    Kp(TestSeq,1) = Slope.^RateLawCoeffSpec; Kp(TestSeq,2) = SlopeCI(1).^RateLawCoeffSpec; Kp(TestSeq,3) = SlopeCI(2).^RateLawCoeffSpec;
                     MoData(TestSeq,1) = Yint; MoData(TestSeq,2) = YintCI(1); MoData(TestSeq,3) = YintCI(2);
                     
                     if j == SampleSize % AvgRateLaw is matrix with column1=mean n value, column2=pooled standard deviation, and column3=mean of standard deviation values.
@@ -825,11 +850,11 @@ for i = 1:NumberTemperatures
                         end
                         
                         figure('Name',FinalFigureName,'Color','white');
-                        line([sqrtTime(SteadyStateStart(i)),sqrtTime(end)], [ReactionAvgSlope(i).*sqrtTime(SteadyStateStart(i)) + FinalMo(i,1),ReactionAvgSlope(i).*sqrtTime(end) + FinalMo(i,1)],'Color','blue','LineStyle','--'); %plotting the steady-state mass
+                        line([RRTime(SteadyStateStart(i)),RRTime(end)], [ReactionAvgSlope(i).*RRTime(SteadyStateStart(i)) + FinalMo(i,1),ReactionAvgSlope(i).*RRTime(end) + FinalMo(i,1)],'Color','blue','LineStyle','--'); % Plotting the steady-state mass
                         hold on
                         box on
                         for h = 1:SampleSize
-                            scatter(sqrtTime(SteadyStateStart(i):end),MassDensity(SteadyStateStart(i):end,TestSeq-SampleSize+h),DataPointTypes(h),'filled');
+                            scatter(RRTime(SteadyStateStart(i):end),MassDensity(SteadyStateStart(i):end,TestSeq-SampleSize+h),DataPointTypes(h),'filled');
                         end
                         hold off
                         
@@ -842,12 +867,17 @@ for i = 1:NumberTemperatures
                         ax = gca;ax.FontSize = 20;
                         GroupedReactionRateplotName = strcat('Reaction rate of'," ", TEST_T_num,' at'," ", Temperature_str);
                         title(GroupedReactionRateplotName,'FontSize',22);xlabel(FitxAxisLabel,'FontSize',22);ylabel(FityAxisLabel,'FontSize',22);
-                        EquationAnnotation = strcat('m = ',{' '},num2str(ReactionAvgSlope(i)),{' '},'t^{1/2}',{' '},'+',{' '},num2str(FinalMo(i,1)));
+                        
+                        if RateLawCoeffSpec == 1
+                            EquationAnnotation = strcat('m = ',{' '},num2str(ReactionAvgSlope(i)),{' '},'t',{' '},'+',{' '},num2str(FinalMo(i,1)));
+                        elseif RateLawCoeffSpec == 2
+                            EquationAnnotation = strcat('m = ',{' '},num2str(ReactionAvgSlope(i)),{' '},'t^{1/2}',{' '},'+',{' '},num2str(FinalMo(i,1)));
+                        end
                         text(TempAnnotXRR,TempAnnotYRR,EquationAnnotation,'FontSize',20);
                         
                         RRResQ = input('Would you like to display the residual analysis of the constructed model against all the replicate data at this temperature? ("Y"/"N")');
                         if RRResQ == "Y"
-                            RRResidualAnalysis(FinalRRResidualsFigureName,sqrtTime,MassDensity,SteadyStateStart,TestSeq,SampleSize,ReactionAvgSlope,FinalMo,GroupedReactionRateplotName,FitxAxisLabel,FityAxisLabel,DataPointTypes,i) % Function to assess the RR residuals against ALL of the replicate data.    
+                            RRResidualAnalysis(FinalRRResidualsFigureName,RRTime,MassDensity,SteadyStateStart,TestSeq,SampleSize,ReactionAvgSlope,FinalMo,GroupedReactionRateplotName,FitxAxisLabel,FityAxisLabel,DataPointTypes,i) % Function to assess the RR residuals against ALL of the replicate data.    
                         elseif RRResQ ~= "Y" && RRResQ ~= "N"
                             fprintf('Incorrect input')
                             break
@@ -868,38 +898,50 @@ for i = 1:NumberTemperatures
                     
                 elseif D == 'Ind Prop'
                     ReactionRawSlopeData(TestSeq,1) = Slope; ReactionRawSlopeData(TestSeq,2) = SlopeCI(1);ReactionRawSlopeData(TestSeq,3) = SlopeCI(2); % For each temperature this takes the fitted slope data (value, and CI's) for the respective experiment and saves them in this vector. This vector is re-written for each temperature (i).
-                    Kp(TestSeq,1) = Slope.^2; Kp(TestSeq,2) = SlopeCI(1).^2; Kp(TestSeq,3) = SlopeCI(2).^2; % Same as ReactionRawSlopeData vector, however converts slope into the reaction rate Kp value according to Kp = slope^n where n = 2.
+                    Kp(TestSeq,1) = Slope.^RateLawCoeffSpec; Kp(TestSeq,2) = SlopeCI(1).^RateLawCoeffSpec; Kp(TestSeq,3) = SlopeCI(2).^RateLawCoeffSpec; % Same as ReactionRawSlopeData vector, however converts slope into the reaction rate Kp value according to Kp = slope^n where n = 2.
                     MoData(TestSeq,1) = Yint; MoData(TestSeq,2) = YintCI(1); MoData(TestSeq,3) = YintCI(2); % For each temperature this takes the fitted y-int (= reaction rate Mo) data (value, and CI's) for the respective experiment and saves them in this vector. This vector is re-written for each temperature (i).
-                    tValue = tinv(0.975, length(sqrtTime(SteadyStateStart(i):end)) - 1); % Students' t value for 95% confidence.
+                    tValue = tinv(0.975, length(RRTime(SteadyStateStart(i):end)) - 1); % Students' t value for 95% confidence.
                     if j == 1
                         KpStDevVector = 0;
                         MoStDevVector = 0;
                         KpStDevPropogated = 0;
                         MoStDevPropogated = 0;
                     end
-                    KpStDevVector(j) = (SlopeSE.^2).*sqrt(SampleSize-1); % This is an array (1xSampleSize) storing the 95% St.Dev of the Kp values fitted for each measurement for the specific temperature (re-written for each tempetature). Calculated from the standard error (SE) after converting it to Kp value (Slope^2) and multiplying it by the sqrt(SampleSize-1).
-                    MoStDevVector(j) = (YintSE.^2).*sqrt(SampleSize-1); % This is an array (1xSampleSize) storing the 95% St.Dev of the Kp values fitted for each measurement for the specific temperature (re-written for each tempetature). Calculated from the standard error (SE) after multiplying it by the sqrt(SampleSize-1).
                     
+                    % note: for the propogating error, keep the St.Dev. in the units of the slope (not slope^n = Kp), b/c that
+                    % transformation causes the variance to be much too large (after St.Dev.^n (of slope)) as it is
+                    % fractional (you would need to find the % error, not the absolute. Instead, transform the error (St.Dev.
+                    % right at the end, after combining with the mean slope^n (=n)).
+                    
+                    % Use this if the CI if the conversion from slope^n = Kp is done after calculating CI:
+                    % NStDevVector(j) = (SlopeSE).*sqrt(length(Time(SteadyStateStart(i):end))); % This is an array (1xSampleSize) storing the 95% St.Dev of the 1/n values fitted for each measurement for the specific temperature (re-written for each tempetature). Calculated from the standard error (SE) after converting it to n value (1/slope) and multiplying it by the sqrt(SampleSize).
+                    % Use this if the CI if the conversion from slope^n = Kp is done before calculating CI:
+                    KpStDevVector(j) = (((Kp(TestSeq,3) - Kp(TestSeq,1))*sqrt(length(Time(SteadyStateStart(i):end))))/tValue);
+                    
+                    MoStDevVector(j) = (YintSE).*sqrt(length(Time(SteadyStateStart(i):end))); % This is an array (1xSampleSize) storing the 95% St.Dev of the Yint values fitted for each measurement for the specific temperature (re-written for each tempetature). Calculated from the standard error (SE) after multiplying it by the sqrt(SampleSize).
+                    
+                    %KpStDevMatrix(j) = (((ReactionRawSlopeData(TestSeq,3) - ReactionRawSlopeData(TestSeq,1))*sqrt(length(Time(SteadyStateStart(i):end))))/tValue); % alternate way to calculate the SD of the each data-set's fitted n value. Should be equal to NStDevVector!?
+               
                     if j == SampleSize
-                        FinalKp(i,1) = mean(Kp(TestSeq-SampleSize+1:TestSeq,1)); % This is the mean of the 1/slope values (Kp). THIS IS NOT 1/(mean of the slope)
+                        KpStDevPropogated(i) = sum(KpStDevVector.^2); % The sum of squares of the 95% St.Dev for each repeat measurement at a temperature (all the 'j' at 'i'). AKA the variance of the Gaussian distribution representing the avg. value of the slope = Kp^(1/n)
+                        MoStDevPropogated(i) = sum(MoStDevVector.^2);
+                        % Use these next two if the CI if the conversion from slope^n = Kp is done after calculating CI:
+                        ReactionAvgSlope(i) = mean(ReactionRawSlopeData(TestSeq-SampleSize+1:TestSeq,1)); % Vector which stores the mean of the slope (1/n) values for each temperature (i). 
+                        %FinalKp(i,1) = ReactionAvgSlope(i).^RateLawCoeffSpec;
+                        % Use this if the CI if the conversion from slope^n = Kp is before after calculating CI:
+                        FinalKp(i,1) = mean(Kp(TestSeq-SampleSize+1:TestSeq,1)); % This is the mean of the 1/slope values (n). THIS IS NOT 1/(mean of the slope)
                         FinalMo(i,1) = mean(MoData(TestSeq-SampleSize+1:TestSeq,1)); % Mean of Mo (y-int)
-                        for ErrorPropIndex = 1:SampleSize
-                            KpStDevPropogated = (KpStDevVector(ErrorPropIndex).^2) + KpStDevPropogated; % The sum of squares of the 95% St.Dev for each repeat measurement at a tempeerature (all the 'j' at 'i'). AKA the variance of the Gaussian distribution representing the avg. value of the 1./slope = Kp.
-                            MoStDevPropogated = (MoStDevVector(ErrorPropIndex).^2) + MoStDevPropogated; % The sum of squares of the 95% St.Dev. for each repeat measurement at a tempeerature (all the 'j' at 'i'). AKA the variance of the Gaussian distribution representing the avg. value of the 1./slope = Kp.
-                            if ErrorPropIndex == SampleSize
-                                KpStDevPropogated = sqrt(KpStDevPropogated);
-                                MoStDevPropogated = sqrt(MoStDevPropogated);
-                            end
-                        end
-                        FinalKp(i,2) = FinalKp(i,1) + ((tValue.*KpStDevPropogated)./sqrt(SampleSize-1)); % The upper bound of 95% conf. interval: mean + propogated 95% confidence width, where propogated 95% confidence width is found by propogating the error: [Student.t.(95%)] * sqrt(propogated error)/(sample size-1) = [Student.t.(95%)] * sqrt(variance)/(sample size-1) = [Student.t.(95%)] * St.Dev./(sample size-1) = 95% bound.
-                        FinalKp(i,3) = FinalKp(i,1) - ((tValue.*KpStDevPropogated)./sqrt(SampleSize-1)); % The lower bound of 95% conf. interval: mean + propogated 95% confidence width, where propogated 95% confidence width is found by propogating the error: [Student.t.(95%)] * sqrt(propogated error)/(sample size-1) = [Student.t.(95%)] * sqrt(variance)/(sample size-1) = [Student.t.(95%)] * St.Dev./(sample size-1) = 95% bound.
-                        FinalMo(i,2) = FinalMo(i,1) + ((tValue.*MoStDevPropogated)./sqrt(SampleSize-1));
-                        FinalMo(i,3) = FinalMo(i,1) - ((tValue.*MoStDevPropogated)./sqrt(SampleSize-1));
-                    
-                        ReactionAvgSlope(i) = mean(ReactionRawSlopeData(TestSeq-SampleSize+1:TestSeq,1)); % Vector which stores the mean of the slope (1/Kp) values for each temperature (i).
-                        
-                        RRSlopeSE(i) = KpStDevPropogated; % Saving the SE of each temperature's Kp in a vector. NOTE: This is usually saved as the SE of the SLOPE (1/Kp), however this data is used for WLS weights and is thus only relative to itself (where the actual values don't matter, but instead only the relative difference between the values).
-                        
+                        KpStDevPropogated(i) = (sqrt(KpStDevPropogated(i))).*(1/SampleSize); % Error propogation for the mean of Kp is the square root of the sum of squares of each data-set's St.Dev. (at Temperature 'i') dividided by the number of samples used to find the average.
+                        MoStDevPropogated(i) = (sqrt(MoStDevPropogated(i))).*(1/SampleSize);
+                        % Use these if the CI if the conversion from slope^n = Kp is done after calculating CI:
+                        %FinalKp(i,2) = (AvgRLSlope(i) + ((tValue.*NStDevPropogated(i))./sqrt(length(Time(SteadyStateStart(i):end))))).^RateLawCoeffSpec; % The upper bound of 95% conf. interval: mean + propogated 95% confidence width, where propogated 95% confidence width is found by t(95%) * St.Dev./sqrt(SampleSize) = t(95%) * SE
+                        %FinalKp(i,3) = (AvgRLSlope(i) - ((tValue.*NStDevPropogated(i))./sqrt(length(Time(SteadyStateStart(i):end))))).^RateLawCoeffSpec; % The lower bound of 95% conf. interval: mean - propogated 95% confidence width
+                        % Use these if the CI if the conversion from slope^n = Kp is before after calculating CI:
+                        FinalKp(i,2) = (FinalKp(i,1) + ((tValue.*KpStDevPropogated(i))./sqrt(length(Time(SteadyStateStart(i):end))))); % The upper bound of 95% conf. interval: mean + propogated 95% confidence width, where propogated 95% confidence width is found by t(95%) * St.Dev./sqrt(SampleSize) = t(95%) * SE
+                        FinalKp(i,3) = (FinalKp(i,1) - ((tValue.*KpStDevPropogated(i))./sqrt(length(Time(SteadyStateStart(i):end))))); % The lower bound of 95% conf. interval: mean - propogated 95% confidence width
+                        FinalMo(i,2) = FinalMo(i,1) + ((tValue.*MoStDevPropogated(i))./sqrt(length(Time(SteadyStateStart(i):end))));
+                        FinalMo(i,3) = FinalMo(i,1) - ((tValue.*MoStDevPropogated(i))./sqrt(length(Time(SteadyStateStart(i):end))));
+                         
                         ReactionRateDisplayQuestion = strcat('Do you want to display reaction rate (Kp, Mo) data at'," ",Temperature_str,' (',TEST_T_num,')? ("Y"/"N")');
                         F = input(ReactionRateDisplayQuestion);
                         if F == "Y"
@@ -918,12 +960,12 @@ for i = 1:NumberTemperatures
                         end
                         
                         figure('Name',FinalFigureName,'Color','white');
-                        line([sqrtTime(SteadyStateStart(i)),sqrtTime(end)], [ReactionAvgSlope(i).*sqrtTime(SteadyStateStart(i)) + FinalMo(i,1),ReactionAvgSlope(i).*sqrtTime(end) + FinalMo(i,1)],'Color','blue','LineStyle','--'); % Plotting the steady-state mass
+                        line([RRTime(SteadyStateStart(i)),RRTime(end)], [ReactionAvgSlope(i).*RRTime(SteadyStateStart(i)) + FinalMo(i,1),ReactionAvgSlope(i).*RRTime(end) + FinalMo(i,1)],'Color','blue','LineStyle','--'); % Plotting the steady-state mass
                         
                         hold on
                         box on
                         for h = 1:SampleSize
-                            scatter(sqrtTime(SteadyStateStart(i):end),MassDensity(SteadyStateStart(i):end,TestSeq-SampleSize+h),DataPointTypes(h),'filled');
+                            scatter(RRTime(SteadyStateStart(i):end),MassDensity(SteadyStateStart(i):end,TestSeq-SampleSize+h),DataPointTypes(h),'filled');
                         end
                         hold off
                         
@@ -936,12 +978,18 @@ for i = 1:NumberTemperatures
                         ax = gca;ax.FontSize = 20;
                         GroupedReactionRateplotName = strcat('Reaction rate of'," ", TEST_T_num,' at'," ", Temperature_str);
                         title(GroupedReactionRateplotName,'FontSize',22);xlabel(FitxAxisLabel,'FontSize',22);ylabel(FityAxisLabel,'FontSize',22);
-                        EquationAnnotation = strcat('m = ',{' '},num2str(ReactionAvgSlope(i)),{' '},'t^{1/2}',{' '},'+',{' '},num2str(FinalMo(i,1)));
+                        
+                        if RateLawCoeffSpec == 1
+                            EquationAnnotation = strcat('m = ',{' '},num2str(ReactionAvgSlope(i)),{' '},'t',{' '},'+',{' '},num2str(FinalMo(i,1)));
+                        elseif RateLawCoeffSpec == 2
+                            EquationAnnotation = strcat('m = ',{' '},num2str(ReactionAvgSlope(i)),{' '},'t^{1/2}',{' '},'+',{' '},num2str(FinalMo(i,1)));
+                        end
+                        
                         text(TempAnnotXRR,TempAnnotYRR,EquationAnnotation,'FontSize',20);
                     
                         RRResQ = input('Would you like to display the residual analysis of the constructed model against all the replicate data at this temperature? ("Y"/"N")');
                         if RRResQ == "Y"
-                            RRResidualAnalysis(FinalRRResidualsFigureName,sqrtTime,MassDensity,SteadyStateStart,TestSeq,SampleSize,ReactionAvgSlope,FinalMo,GroupedReactionRateplotName,FitxAxisLabel,FityAxisLabel,DataPointTypes,i) % Function to assess the RR residuals against ALL of the replicate data.    
+                            RRResidualAnalysis(FinalRRResidualsFigureName,RRTime,MassDensity,SteadyStateStart,TestSeq,SampleSize,ReactionAvgSlope,FinalMo,GroupedReactionRateplotName,FitxAxisLabel,FityAxisLabel,DataPointTypes,i) % Function to assess the RR residuals against ALL of the replicate data.    
                         elseif RRResQ ~= "Y" && RRResQ ~= "N"
                             fprintf('Incorrect input')
                             break
@@ -960,17 +1008,17 @@ for i = 1:NumberTemperatures
                 % ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
                     
                 elseif D == 'Ind Pooled'
-                    tValue = tinv(0.975, length(sqrtTime(SteadyStateStart(i):end)) - 1); % Student's t value for 95% confidence.
-                    ReactionSlopeData(TestSeq,1) = Slope; ReactionSlopeData(TestSeq,2) = SlopeCI(2) - Slope; ReactionSlopeData(TestSeq,3) = SlopeSE.*tValue; ReactionSlopeData(TestSeq,4) = SlopeSE.*sqrt(length(sqrtTime(SteadyStateStart(i):end))-1); % Column 1 is coefficient value (the slope sqrt(Kp)), Column 2 is one way of calculating the 1/2width of +/- value of 95% confidence interval (+/- this amount) of the slope (1/Kp), Column 3 is another way of calculating the 1/2width of +/- value of 95% confidence interval (mean +/- this amount) of the slope (1/Kp), Column 4 is the St.Dev. of the slope (1/Kp).
-                    RawKp(TestSeq,1) = Slope.^2; RawKp(TestSeq,2) = SlopeCI(2).^2; RawKp(TestSeq,3) = SlopeCI(1).^2; % Array of Kp and Kp +/- 95% CI.
+                    tValue = tinv(0.975, length(RRTime(SteadyStateStart(i):end)) - 1); % Student's t value for 95% confidence.
+                    ReactionSlopeData(TestSeq,1) = Slope; ReactionSlopeData(TestSeq,2) = SlopeCI(2) - Slope; ReactionSlopeData(TestSeq,3) = SlopeSE.*tValue; ReactionSlopeData(TestSeq,4) = SlopeSE.*sqrt(length(RRTime(SteadyStateStart(i):end))-1); % Column 1 is coefficient value (the slope sqrt(Kp)), Column 2 is one way of calculating the 1/2width of +/- value of 95% confidence interval (+/- this amount) of the slope (1/Kp), Column 3 is another way of calculating the 1/2width of +/- value of 95% confidence interval (mean +/- this amount) of the slope (1/Kp), Column 4 is the St.Dev. of the slope (1/Kp).
+                    RawKp(TestSeq,1) = Slope.^RateLawCoeffSpec; RawKp(TestSeq,2) = SlopeCI(2).^RateLawCoeffSpec; RawKp(TestSeq,3) = SlopeCI(1).^RateLawCoeffSpec; % Array of Kp and Kp +/- 95% CI.
                     
-                    MoData(TestSeq,1) = Yint; MoData(TestSeq,2) = YintCI(2) - Yint; MoData(TestSeq,3) = YintSE.*tValue; MoData(TestSeq,4) = YintSE.*sqrt(length(sqrtTime(SteadyStateStart(i):end))-1); % Column 1 is coefficient value, Column 2 is one way of calculating the 1/2width of +/- value of 95% confidence interval (+/- this amount), Column 3 is another way of calculating the 1/2width of +/- value of 95% confidence interval (mean +/- this amount), Column 4 is the St.Dev. of the Y-int. (Mo).
+                    MoData(TestSeq,1) = Yint; MoData(TestSeq,2) = YintCI(2) - Yint; MoData(TestSeq,3) = YintSE.*tValue; MoData(TestSeq,4) = YintSE.*sqrt(length(RRTime(SteadyStateStart(i):end))-1); % Column 1 is coefficient value, Column 2 is one way of calculating the 1/2width of +/- value of 95% confidence interval (+/- this amount), Column 3 is another way of calculating the 1/2width of +/- value of 95% confidence interval (mean +/- this amount), Column 4 is the St.Dev. of the Y-int. (Mo).
                     RawMo(TestSeq,1) = Yint; RawMo(TestSeq,2) = YintCI(1); RawMo(TestSeq,3) = YintCI(2); % Array of Mo and Mo +/- 95% CI.
                     
                     if j == SampleSize
-                        ReactionMeanSlopeData(i,1) = (mean(ReactionSlopeData(TestSeq-SampleSize+1:TestSeq,1))); % Mean of the individual measurements of the reaction rate slope (sqrt(Kp)) at temperature i.
-                        ReactionMeanSlopeData(i,2) = (mean(ReactionSlopeData(TestSeq-SampleSize+1:TestSeq,2))); % Mean of the individual measurements of the reaction rate slopes' (sqrt(Kp)) +/- 95% value calculated by MATLAB.
-                        ReactionMeanSlopeData(i,3) = (mean(ReactionSlopeData(TestSeq-SampleSize+1:TestSeq,4))); % Mean of the individual measurements of the reaction rate slopes' (sqrt(Kp)) St.Dev.
+                        ReactionMeanSlopeData(i,1) = (mean(ReactionSlopeData(TestSeq-SampleSize+1:TestSeq,1))); % Mean of the individual measurements of the reaction rate slope (Kp^1/n) at temperature i.
+                        ReactionMeanSlopeData(i,2) = (mean(ReactionSlopeData(TestSeq-SampleSize+1:TestSeq,2))); % Mean of the individual measurements of the reaction rate slopes' (Kp^1/n) +/- 95% value calculated by MATLAB.
+                        ReactionMeanSlopeData(i,3) = (mean(ReactionSlopeData(TestSeq-SampleSize+1:TestSeq,4))); % Mean of the individual measurements of the reaction rate slopes' (Kp^1/n) St.Dev.
                         
                         MeanMo(i,1) = mean(MoData(TestSeq-SampleSize+1:TestSeq,1)); % Mean of the individual measurements of Mo (Y-int) at temperature i.
                         MeanMo(i,2) = (mean(MoData(TestSeq-SampleSize+1:TestSeq,1)) + (tValue.*(std(MoData(TestSeq-SampleSize+1:TestSeq,1))./sqrt(SampleSize)))); % Mean (not pooled) of upper confidence limit (95%) of the Mo (y-int.) at temperature i.
@@ -978,7 +1026,7 @@ for i = 1:NumberTemperatures
                         
                         ReactionAvgSlope(i) = ReactionMeanSlopeData(i,1);
                         
-                        AvgKp(i) = mean(RawKp(TestSeq-SampleSize+1:TestSeq,1)); % Average of 1./[reaction rate slope values] (Kp). This is NOT 1./[reaction rate slope average].
+                        AvgKp(i) = mean(RawKp(TestSeq-SampleSize+1:TestSeq,1)); % Average of [reaction rate slope values]^n (Kp). This is NOT [reaction rate slope average]^n.
                         
                         PooledSlopeVarNumerator = zeros(NumberTemperatures);
                         PooledSlopeVarDenominator = zeros(NumberTemperatures);
@@ -1002,14 +1050,14 @@ for i = 1:NumberTemperatures
                             end
                         end
                         
-                        SlopePooledCI(i) = tValue.*(PooledSlopeStDev(i)./sqrt(length(sqrtTime(SteadyStateStart(i):end)) - 1)); % The +/- width of the 95% confidence interval for the reaction rate slope at temperature i. SHOULD BE SIMILIAR TO ReactionFinalSlopeData(i,2) RIGHT?!?!
-                        FinalKp(i,1) = ReactionAvgSlope(i).^2; FinalKp(i,2) = (ReactionAvgSlope(i) + SlopePooledCI(i)).^2; FinalKp(i,3) = (ReactionAvgSlope(i) - SlopePooledCI(i)).^2;
+                        SlopePooledCI(i) = tValue.*(PooledSlopeStDev(i)./sqrt(length(RRTime(SteadyStateStart(i):end)))); % The +/- width of the 95% confidence interval for the reaction rate slope at temperature i. SHOULD BE SIMILIAR TO ReactionFinalSlopeData(i,2) RIGHT?!?!
+                        FinalKp(i,1) = ReactionAvgSlope(i).^RateLawCoeffSpec; FinalKp(i,2) = (ReactionAvgSlope(i) + SlopePooledCI(i)).^RateLawCoeffSpec; FinalKp(i,3) = (ReactionAvgSlope(i) - SlopePooledCI(i)).^RateLawCoeffSpec;
                         %FinalKp(i,1) = AvgKp(i); FinalKp(i,2) = AvgKp(i) + SlopePooledCI(i).^2; FinalKp(i,3) = AvgKp(i) - SlopePooledCI(i).^2;
                         
-                        MoPooledCI(i) = tValue.*(PooledMoStDev(i)./sqrt(length(sqrtTime(SteadyStateStart(i):end)) - 1)); % The +/- width of the 95% confidence interval for the reaction rate slope at temperature i.
+                        MoPooledCI(i) = tValue.*(PooledMoStDev(i)./sqrt(length(RRTime(SteadyStateStart(i):end)) - 1)); % The +/- width of the 95% confidence interval for the reaction rate slope at temperature i.
                         FinalMo(i,1) = MeanMo(i,1); FinalMo(i,2) = MeanMo(i,1) + MoPooledCI(i); FinalMo(i,3) = MeanMo(i,1) - MoPooledCI(i); % Manually calculated C.I. (95%) for the y-int. (Mo) by POOLING the VARIANCE.
                         
-                        RRSlopeSE(i) = PooledSlopeStDev(i)./sqrt(length(sqrtTime(SteadyStateStart(i):end)) - 1); % Standard error (SE) of the slope value (one per temperture, not per measurement). Their inverse is used as the weight for the Arrhenious WLS regression later.
+                        RRSlopeSE(i) = PooledSlopeStDev(i)./sqrt(length(RRTime(SteadyStateStart(i):end))); % Standard error (SE) of the slope value (one per temperture, not per measurement). Their inverse is used as the weight for the Arrhenious WLS regression later.
                         
                         if TestSeq == TestSeq(end) % Only ask this once each of the temperatures have been analyzed.
                             E = input('** FOR DEVELOPERS ** Would you like to display code quality assurance checks? ("Y"/"N")');
@@ -1018,11 +1066,11 @@ for i = 1:NumberTemperatures
                                 tableNames = {'Mean Mo','MeanMo+95%','PooledMo+95%','MeanMo-95%','PooledMo-95%'};
                                 table(FinalMo(i,1),MeanMo(i,2),FinalMo(i,2),MeanMo(1,3),FinalMo(i,3),'VariableNames',tableNames)
                                 
-                                display('The following is a comparison of MATLABs slope (1/Kp) data calculated in a number of ways for each measurement')
+                                display('The following is a comparison of MATLABs slope (Kp^[1/n]) data calculated in a number of ways for each measurement')
                                 tableNames = {'Slope','MATLAB [(Upper Limit C.I.) - Mean]','MATLAB [Mean * Student.t]'};
                                 table(ReactionSlopeData(:,1),ReactionSlopeData(:,2),ReactionSlopeData(:,3),'VariableNames',tableNames)
                                 
-                                display('The following is a comparison of MATLABs slope (1/Kp) calculated confidence interval values to those manually calculated for each measurement')
+                                display('The following is a comparison of MATLABs slope (Kp^[1/n]) calculated confidence interval values to those manually calculated for each measurement')
                                 tableNames = {'MeanSlope','MeanSlopeC.I.width','PooledSlopeC.I.width','MeanSlopeSt.Dev.','PooledSlopeSt.Dev.','Mean of Kp','Kp of Mean Slope'};
                                 table(ReactionAvgSlope(i),ReactionMeanSlopeData(i,2),SlopePooledCI(i),ReactionMeanSlopeData(i,3),PooledSlopeStDev(i),AvgKp(i),FinalKp(i,1),'VariableNames',tableNames)
                             end
@@ -1046,11 +1094,12 @@ for i = 1:NumberTemperatures
                         end
                         
                         figure('Name',FinalFigureName,'Color','white');
-                        line([sqrtTime(SteadyStateStart(i)),sqrtTime(end)], [ReactionAvgSlope(i).*sqrtTime(SteadyStateStart(i)) + FinalMo(i,1),ReactionAvgSlope(i).*sqrtTime(end) + FinalMo(i,1)],'Color','blue','LineStyle','--'); % Plotting the steady-state mass
+                        line([RRTime(SteadyStateStart(i)),RRTime(end)], [ReactionAvgSlope(i).*RRTime(SteadyStateStart(i)) + FinalMo(i,1),ReactionAvgSlope(i).*RRTime(end) + FinalMo(i,1)],'Color','blue','LineStyle','--'); % Plotting the steady-state mass
+                        
                         hold on
                         box on
                         for h = 1:SampleSize
-                            scatter(sqrtTime(SteadyStateStart(i):end),MassDensity(SteadyStateStart(i):end,TestSeq-SampleSize+h),DataPointTypes(h),'filled');
+                            scatter(RRTime(SteadyStateStart(i):end),MassDensity(SteadyStateStart(i):end,TestSeq-SampleSize+h),DataPointTypes(h),'filled');
                         end
                         hold off
                         
@@ -1063,12 +1112,18 @@ for i = 1:NumberTemperatures
                         ax = gca;ax.FontSize = 20;
                         GroupedReactionRateplotName = strcat('Reaction rate of'," ", TEST_T_num,' at'," ", Temperature_str);
                         title(GroupedReactionRateplotName,'FontSize',22);xlabel(FitxAxisLabel,'FontSize',22);ylabel(FityAxisLabel,'FontSize',22);
-                        EquationAnnotation = strcat('m = ',{' '},num2str(ReactionAvgSlope(i)),{' '},'t^{1/2}',{' '},'+',{' '},num2str(FinalMo(i,1)));
+                        
+                        if RateLawCoeffSpec == 1
+                            EquationAnnotation = strcat('m = ',{' '},num2str(ReactionAvgSlope(i)),{' '},'t',{' '},'+',{' '},num2str(FinalMo(i,1)));
+                        elseif RateLawCoeffSpec == 2
+                            EquationAnnotation = strcat('m = ',{' '},num2str(ReactionAvgSlope(i)),{' '},'t^{1/2}',{' '},'+',{' '},num2str(FinalMo(i,1)));
+                        end
+                            
                         text(TempAnnotXRR,TempAnnotYRR,EquationAnnotation,'FontSize',20);
                     
                         RRResQ = input('Would you like to display the residual analysis of the constructed model against all the replicate data at this temperature? ("Y"/"N")');
                         if RRResQ == "Y"
-                            RRResidualAnalysis(FinalRRResidualsFigureName,sqrtTime,MassDensity,SteadyStateStart,TestSeq,SampleSize,ReactionAvgSlope,FinalMo,GroupedReactionRateplotName,FitxAxisLabel,FityAxisLabel,DataPointTypes,i) % Function to assess the RR residuals against ALL of the replicate data.    
+                            RRResidualAnalysis(FinalRRResidualsFigureName,RRTime,MassDensity,SteadyStateStart,TestSeq,SampleSize,ReactionAvgSlope,FinalMo,GroupedReactionRateplotName,FitxAxisLabel,FityAxisLabel,DataPointTypes,i) % Function to assess the RR residuals against ALL of the replicate data.    
                         elseif RRResQ ~= "Y" && RRResQ ~= "N"
                             fprintf('Incorrect input')
                             break
@@ -1092,10 +1147,10 @@ for i = 1:NumberTemperatures
                         FitplotName = strcat('Average reaction rate at', " ",Temperature_str);
                         RRMassDensityGrouped = MassDensity(:,TestSeq-SampleSize+1:TestSeq); % Temporary mass matrix for just the current temp. Subset of 'MassDensity' matrix.
                         RRMassDensityAvg = mean(RRMassDensityGrouped,2); % Averaging mass at each time (across rows). Ensure that each repeated temperature is cut off at the same point.
-                        domain = sqrtTime(SteadyStateStart(i):end);range = RRMassDensityAvg(SteadyStateStart(i):end);
+                        domain = RRTime(SteadyStateStart(i):end);range = RRMassDensityAvg(SteadyStateStart(i):end);
                         UseParameter = 0;
                         [fitresult,Slope,Yint,SlopeSE,SlopeCI,YintSE,YintCI] = createFit(domain, range, FitfigName, FitplotName, FitxAxisLabel, FityAxisLabel, TempAnnotXRL, TempAnnotYRL, TempAnnotXRR, TempAnnotYRR, AnnotX, AnnotY, UseParameter);
-                        FinalKp(i,1) = Slope.^2; FinalKp(i,2) = SlopeCI(2).^2; FinalKp(i,3) = SlopeCI(1).^2;
+                        FinalKp(i,1) = Slope.^RateLawCoeffSpec; FinalKp(i,2) = SlopeCI(2).^RateLawCoeffSpec; FinalKp(i,3) = SlopeCI(1).^RateLawCoeffSpec;
                         FinalMo(i,1) = Yint; FinalMo(i,2) = YintCI(2); FinalMo(i,3) = YintCI(1);
                         RRSlopeSE(i) = SlopeSE;
                         ReactionRateDisplayQuestion = strcat('Do you want to display reaction rate (Kp & Mo) data at'," ",Temperature_str,' (',TEST_T_num,')? ("Y"/"N")');
@@ -1129,11 +1184,11 @@ for i = 1:NumberTemperatures
                         RRMassDensityGrouped = MassDensity(:,TestSeq-SampleSize+1:TestSeq); % temporary mass matrix for just the current temp. Subset of 'MassDensity' matrix.
                         RRMassDensityAvg(:,i) = mean(RRMassDensityGrouped,2); % averaging mass at each time (across rows). Ensure that each repeated temperature is cut off at the same point.
                         MDStDev = std(RRMassDensityGrouped,[],2);
-                        domain = sqrtTime(SteadyStateStart(i):end);range = RRMassDensityAvg(SteadyStateStart(i):end,i);Weights = 1./MDStDev(SteadyStateStart(i):end);
+                        domain = RRTime(SteadyStateStart(i):end);range = RRMassDensityAvg(SteadyStateStart(i):end,i);Weights = 1./MDStDev(SteadyStateStart(i):end);
                         UseParameter = 0;
                         [weightedfitresult,WeightedSlope,WeightedYint,WeightedSlopeSE,WeightedSlopeCI,WeightedYintSE,WeightedYintCI] = createWeightedFit(domain, range, Weights, FitfigName, FitplotName, FitxAxisLabel, FityAxisLabel, TempAnnotXRL, TempAnnotYRL, TempAnnotXRR, TempAnnotYRR, AnnotX, AnnotY, UseParameter);
                         
-                        FinalKp(i,1) = WeightedSlope^2; FinalKp(i,2) = WeightedSlopeCI(2).^2; FinalKp(i,3) = WeightedSlopeCI(1).^2;
+                        FinalKp(i,1) = WeightedSlope^RateLawCoeffSpec; FinalKp(i,2) = WeightedSlopeCI(2).^RateLawCoeffSpec; FinalKp(i,3) = WeightedSlopeCI(1).^RateLawCoeffSpec;
                         FinalMo(i,1) = WeightedYint; FinalMo(i,2) = WeightedYintCI(2); FinalMo(i,3) = WeightedYintCI(1);
                         RRSlopeSE(i) = WeightedSlopeSE;
                         ReactionRateDisplayQuestion = strcat('Do you want to display reaction rate (Kp & Mo) data at'," ",Temperature_str,' (',TEST_T_num,')? ("Y"/"N")');
@@ -1159,18 +1214,18 @@ for i = 1:NumberTemperatures
                     
                 elseif D == 'All'
                     if j == 1
-                        RRAllTimes = sqrtTime(SteadyStateStart(i):end);
+                        RRAllTimes = RRTime(SteadyStateStart(i):end);
                         RRMassDensityAllData = MassDensity(SteadyStateStart(i):end,TestSeq);
                     else
                         RRMassDensityAllData = [RRMassDensityAllData;MassDensity(SteadyStateStart(i):end,TestSeq)]; %appending data all together in a single matrix for each temperature.
-                        RRAllTimes = [RRAllTimes;sqrtTime(SteadyStateStart(i):end)]; %appending data all together in a single matrix for each temperature.
+                        RRAllTimes = [RRAllTimes;RRTime(SteadyStateStart(i):end)]; %appending data all together in a single matrix for each temperature.
                         if j == SampleSize
                             FitfigName = strcat('Reaction rate at', Temperature_str);
                             FitplotName = strcat('Reaction rate at', Temperature_str);
                             domain = RRAllTimes;range = RRMassDensityAllData;
                             UseParameter = 0;
                             [fitresult,Slope,Yint,SlopeSE,SlopeCI,YintSE,YintCI] = createFit(domain, range, FitfigName, FitplotName, FitxAxisLabel, FityAxisLabel, TempAnnotXRL, TempAnnotYRL, TempAnnotXRR, TempAnnotYRR, AnnotX, AnnotY, UseParameter);
-                            FinalKp(i,1) = Slope.^2; FinalKp(i,2) = SlopeCI(2).^2; FinalKp(i,3) = SlopeCI(1).^2;
+                            FinalKp(i,1) = Slope.^RateLawCoeffSpec; FinalKp(i,2) = SlopeCI(2).^RateLawCoeffSpec; FinalKp(i,3) = SlopeCI(1).^RateLawCoeffSpec;
                             FinalMo(i,1) = Yint; FinalMo(i,2) = YintCI(2); FinalMo(i,3) = YintCI(1);
                             RRSlopeSE(i) = SlopeSE;
                             ReactionRateDisplayQuestion = strcat('Do you want to display reaction rate (Kp & Mo) data at'," ",Temperature_str,' (',TEST_T_num,')? ("Y"/"N")');
@@ -1204,21 +1259,21 @@ for i = 1:NumberTemperatures
                     
                     SampleSizeMatrix(TestSeq) = length(lnTime(SteadyStateStart(i):end)); %vector of length of data for each temperature
                     if j == 1
-                        HLM_RR_sqrtTime = sqrtTime(SteadyStateStart(i):end);
+                        HLM_RR_sqrtTime = RRTime(SteadyStateStart(i):end);
                         HLM_RR_lnMassDensity = MassDensity(SteadyStateStart(i):end,TestSeq);
                         HLM_RR_Test_ID = ones(SampleSizeMatrix(TestSeq),1).*str2num(strcat(num2str(TESTnum),'.',num2str(TESTver)));
                     else
                         HLM_RR_lnMassDensity = [HLM_RR_lnMassDensity;MassDensity(SteadyStateStart(i):end,TestSeq)]; %appending data all together in a single matrix for each temperature.
-                        HLM_RR_sqrtTime = [HLM_RR_sqrtTime;sqrtTime(SteadyStateStart(i):end)]; %appending data all together in a single matrix for each temperature.
+                        HLM_RR_sqrtTime = [HLM_RR_sqrtTime;RRTime(SteadyStateStart(i):end)]; %appending data all together in a single matrix for each temperature.
                         HLM_RR_Test_ID = [HLM_RR_Test_ID;ones(SampleSizeMatrix(TestSeq),1).*str2num(strcat(num2str(TESTnum),'.',num2str(TESTver)))];
                         if j == SampleSize
                             HLM_Table = table(HLM_RR_sqrtTime,HLM_RR_lnMassDensity,HLM_RR_Test_ID);
-                            HLM_Table.Properties.VariableNames = {'sqrtTime' 'MassDensity' 'ExpCode'};
+                            HLM_Table.Properties.VariableNames = {'RRTime' 'MassDensity' 'ExpCode'};
                             FitfigName = strcat('Reaction rate at', Temperature_str);
                             FitplotName = strcat('Reaction rate at', Temperature_str);
                             UseParameter = 0;
                             [HLMresult,Slope,Yint,SlopeSE,SlopeCI,YintSE,YintCI] = HLMfit(HLMrandSpecification,HLM_Table, FitfigName, FitplotName, FitxAxisLabel, FityAxisLabel, TempAnnotXRL, TempAnnotYRL, TempAnnotXRR, TempAnnotYRR, AnnotX, AnnotY, UseParameter);
-                            FinalKp(i,1) = Slope.^2; FinalKp(i,2) = SlopeCI(2).^2; FinalKp(i,3) = SlopeCI(1).^2;
+                            FinalKp(i,1) = Slope.^RateLawCoeffSpec; FinalKp(i,2) = SlopeCI(2).^RateLawCoeffSpec; FinalKp(i,3) = SlopeCI(1).^RateLawCoeffSpec;
                             FinalMo(i,1) = Yint; FinalMo(i,2) = YintCI(2); FinalMo(i,3) = YintCI(1);
                             RRSlopeSE(i) = SlopeSE;
                             ReactionRateDisplayQuestion = strcat('Do you want to display reaction rate (Kp & Mo) data at'," ",Temperature_str,' (',TEST_T_num,')? ("Y"/"N")');
@@ -1308,23 +1363,29 @@ for i = 1:NumberTemperatures
             u = 1;sz = 10;
             while u<=SampleSize
                 TestCode = strcat('Calculated steady- and transient-state breakdown of'," ",'T.',num2str(i),'.',num2str(u));
-                TransMass(:,u) = MassDensity(:,TestSeq - SampleSize + u) - KpSlopeData(TestSeq - SampleSize + u,1).*sqrtTime; % Assume steady-state y-int (t_p) is 0, and subtract this behaviour off of measured mass.
-                TransMassNEWOther(:,u) = MassDensity(:,TestSeq - SampleSize + u) - (KpSlopeData(TestSeq - SampleSize + u,1).*sqrtTime + KpYintData(TestSeq - SampleSize + u,1)); % Assume steady-state y-int (t_p) is 0, and subtract this behaviour off of measured mass.
-                SteadyMassTangent(:,u) = KpSlopeData(TestSeq - SampleSize + u,1).*sqrtTime + KpYintData(TestSeq - SampleSize + u,1); % Tangent to SS section of real m curve. Y-int called m_o(primed). This is based on Kp average value.
-                SteadyMass(:,u) = KpSlopeData(TestSeq - SampleSize + u,1).*sqrtTime; % The steady-state m_p curve, originating from 0 by assumption
+                TransMass(:,u) = MassDensity(:,TestSeq - SampleSize + u) - KpSlopeData(TestSeq - SampleSize + u,1).*RRTime; % Assume steady-state y-int (t_p) is 0, and subtract this behaviour off of measured mass.
+                TransMassNEWOther(:,u) = MassDensity(:,TestSeq - SampleSize + u) - (KpSlopeData(TestSeq - SampleSize + u,1).*RRTime + KpYintData(TestSeq - SampleSize + u,1)); % Assume steady-state y-int (t_p) is 0, and subtract this behaviour off of measured mass.
+                SteadyMassTangent(:,u) = KpSlopeData(TestSeq - SampleSize + u,1).*RRTime + KpYintData(TestSeq - SampleSize + u,1); % Tangent to SS section of real m curve. Y-int called m_o(primed). This is based on Kp average value.
+                SteadyMass(:,u) = KpSlopeData(TestSeq - SampleSize + u,1).*RRTime; % The steady-state m_p curve, originating from 0 by assumption
                 
                 subplot(SampleSize,1,u);
                 box on
-                SSPlot(1) = scatter(sqrtTime,MassDensity(:,TestSeq - SampleSize + u),sz,'o','black','filled');
+                SSPlot(1) = scatter(RRTime,MassDensity(:,TestSeq - SampleSize + u),sz,'o','black','filled');
                 hold on
-                SSPlot(2) = scatter(sqrtTime,TransMassNEWOther(:,u),sz,'filled','Marker','d','MarkerFaceColor','#D95319','MarkerEdgeColor','#D95319'); % Plotting the calculated transient mass
-                %SSPlot(2) = scatter(sqrtTime,TransMass(:,u),sz,'filled','Marker','d','MarkerFaceColor','#D95319','MarkerEdgeColor','#D95319'); % Plotting the calculated transient mass
-                SSPlot(3) = line([sqrtTime(1),sqrtTime(end)], [SteadyMassTangent(1,u),SteadyMassTangent(end,u)],'Color','#0072BD','LineStyle','--','LineWidth',2); % Plotting the calculated steady-state mass and extrapolating the start mass to non-zero y-intercept.
-                SSPlot(4) = vline(sqrtTime(SteadyStateStartInd(TestSeq - SampleSize + u)),'black:'); % Showing where the steady-state cutoff has been defined with a vertical, black, dotted line.
-                SSPlot(5) = line([sqrtTime(1),sqrtTime(end)], [SteadyMass(1,u),SteadyMass(end,u)],'Color','#0072BD','LineStyle','--','LineWidth',2); % Plotting the calculated steady-state mass normalized for 0 start mass
+                SSPlot(2) = scatter(RRTime,TransMassNEWOther(:,u),sz,'filled','Marker','d','MarkerFaceColor','#D95319','MarkerEdgeColor','#D95319'); % Plotting the calculated transient mass
+                %SSPlot(2) = scatter(RRTime,TransMass(:,u),sz,'filled','Marker','d','MarkerFaceColor','#D95319','MarkerEdgeColor','#D95319'); % Plotting the calculated transient mass
+                SSPlot(3) = line([RRTime(1),RRTime(end)], [SteadyMassTangent(1,u),SteadyMassTangent(end,u)],'Color','#0072BD','LineStyle','--','LineWidth',2); % Plotting the calculated steady-state mass and extrapolating the start mass to non-zero y-intercept.
+                SSPlot(4) = vline(RRTime(SteadyStateStartInd(TestSeq - SampleSize + u)),'black:'); % Showing where the steady-state cutoff has been defined with a vertical, black, dotted line.
+                SSPlot(5) = line([RRTime(1),RRTime(end)], [SteadyMass(1,u),SteadyMass(end,u)],'Color','#0072BD','LineStyle','--','LineWidth',2); % Plotting the calculated steady-state mass normalized for 0 start mass
                 hold off
                 legend(SSPlot(1:4),'Raw mass, m','Transient mass, m_i','Steady-state mass, m_p','Steady-state cutoff','FontSize',12,'Location','northwest');
-                xlabel('Square root time ($$seconds^{1/2}$$)','FontSize',22);ylabel('Mass $$(g/cm^2)$$','FontSize',22);
+                
+                if RateLawCoeffSpec == 1
+                    xlabel('Time ($$seconds$$)','FontSize',22);ylabel('Mass $$(g/cm^2)$$','FontSize',22);
+                elseif RateLawCoeffSpec == 2
+                    xlabel('Square root time ($$seconds^{1/2}$$)','FontSize',22);ylabel('Mass $$(g/cm^2)$$','FontSize',22);
+                end
+               
                 title(TestCode,'FontSize',22);
                 ax = gca;ax.FontSize = 20;
                 u = u + 1;
@@ -1478,7 +1539,7 @@ Slope = CoeffValues(2);Yint = CoeffValues(1);
 CoeffSE = fitresult.Coefficients.SE;
 SlopeSE = CoeffSE(2);YintSE = CoeffSE(1);
 
-% Get 95% confidence interval of each coefficient
+% Get 95% confidence interval of each coefficient (this MATLAB function uses the SE, not the SD)
 CoeffCI = coefCI(fitresult);
 SlopeCI = CoeffCI(2,:);YintCI = CoeffCI(1,:);
 
@@ -1562,11 +1623,11 @@ elseif HLMrandSpecification == 'SlopeIntUncorr' && UseParameter == 1
 end
 
 if HLMrandSpecification == 'FixSlope' && UseParameter == 0
-    HLMresult = fitlme(HLM_Table,'MassDensity ~ 1+ sqrtTime + (1|ExpCode)'); % I think the '1+' is redundant (and already assumed (int)).
+    HLMresult = fitlme(HLM_Table,'MassDensity ~ 1+ RRTime + (1|ExpCode)'); % I think the '1+' is redundant (and already assumed (int)).
 elseif HLMrandSpecification == 'CorrSlopeInt' && UseParameter == 0
-    HLMresult = fitlme(HLM_Table,'MassDensity ~ 1 + sqrtTime + (1 + sqrtTime|ExpCode)'); % I think the '1+' is redundant (and already assumed (int)).
+    HLMresult = fitlme(HLM_Table,'MassDensity ~ 1 + RRTime + (1 + RRTime|ExpCode)'); % I think the '1+' is redundant (and already assumed (int)).
 elseif HLMrandSpecification == 'SlopeIntUncorr' && UseParameter == 0
-    HLMresult = fitlme(HLM_Table,'MassDensity ~ 1 + sqrtTime + (1|ExpCode) + (-1 + sqrtTime|ExpCode)'); % I think the '1+' is redundant (and already assumed (int)).
+    HLMresult = fitlme(HLM_Table,'MassDensity ~ 1 + RRTime + (1|ExpCode) + (-1 + RRTime|ExpCode)'); % I think the '1+' is redundant (and already assumed (int)).
 end
 
 %RootMeanSquared = HLMresult.RMSE;
@@ -2019,20 +2080,20 @@ end
 % ----- Function for manually analyzing the residuals of a constructed reaction-rate regression model against ALL of the replicate data. -------------------------------------------------------------------------------------------------
 % ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-function RRResidualAnalysis(FinalRRResidualsFigureName,sqrtTime,MassDensity,SteadyStateStart,TestSeq,SampleSize,ReactionAvgSlope,FinalMo,GroupedReactionRateplotName,FitxAxisLabel,FityAxisLabel,DataPointTypes,i) % Function to assess the RR residuals against ALL of the replicate data.    
+function RRResidualAnalysis(FinalRRResidualsFigureName,RRTime,MassDensity,SteadyStateStart,TestSeq,SampleSize,ReactionAvgSlope,FinalMo,GroupedReactionRateplotName,FitxAxisLabel,FityAxisLabel,DataPointTypes,i) % Function to assess the RR residuals against ALL of the replicate data.    
 
 clear RRresiduals
 for h = 1:SampleSize
-    RRresiduals(:,h) = MassDensity(SteadyStateStart(i):end,TestSeq-SampleSize+h)-(ReactionAvgSlope(i).*sqrtTime(SteadyStateStart(i):end) + FinalMo(i,1));
+    RRresiduals(:,h) = MassDensity(SteadyStateStart(i):end,TestSeq-SampleSize+h)-(ReactionAvgSlope(i).*RRTime(SteadyStateStart(i):end) + FinalMo(i,1));
 end
 
 figure('Name',FinalRRResidualsFigureName,'Color','white'); % Figure for the residuals analysis of the final (reduced) regression model for the temperature i.
 subplot(2,1,1); % Residuals vs. predictor plot
-line([sqrtTime(SteadyStateStart(i)),sqrtTime(end)], [0,0],'Color','black','LineStyle','--'); % Horizontal dato-line at residual = 0 for reference to 'perfect' fit.
+line([RRTime(SteadyStateStart(i)),RRTime(end)], [0,0],'Color','black','LineStyle','--'); % Horizontal dato-line at residual = 0 for reference to 'perfect' fit.
 hold on
 box on
 for h = 1:SampleSize
-    scatter(sqrtTime(SteadyStateStart(i):end),RRresiduals(:,h),'filled',DataPointTypes(h)) % Plotting the residuals (data - model) for the final 'reduced' model from 'Ind' at temperature i against all of the raw, replicate, data.
+    scatter(RRTime(SteadyStateStart(i):end),RRresiduals(:,h),'filled',DataPointTypes(h)) % Plotting the residuals (data - model) for the final 'reduced' model from 'Ind' at temperature i against all of the raw, replicate, data.
 end
 hold off
 title(GroupedReactionRateplotName,'FontSize',22);xlabel(FitxAxisLabel,'FontSize',22);ylabel('Residuals','FontSize',22);
